@@ -1,0 +1,11 @@
+{
+  "appId": "com.skc.physics11",
+  "appName": "11th SKC Physics",
+  "webDir": "www",
+  "backgroundColor": "#0b1220",
+  "server": { "androidScheme": "https" },
+  "android": {
+    "backgroundColor": "#0b1220",
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}
