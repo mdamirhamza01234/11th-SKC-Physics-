@@ -465,6 +465,17 @@ window.addEventListener('popstate', function(){ var l = layers.pop(); if(l) l.cl
 $('backBtn').onclick = function(){
   if(history.length > 1) history.go(-(layers.length + 1)); else location.href = 'index.html';
 };
+/* Android back button / side swipe: pehle khula menu/popup band, phir chapter list par wapas (app band nahi) */
+try {
+  var CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(CapApp && CapApp.addListener){
+    CapApp.addListener('backButton', function(){
+      if(layers.length) history.back();
+      else if(history.length > 1) history.back();
+      else location.href = 'index.html';
+    });
+  }
+} catch(e){}
 
 /* ---------------- loading ---------------- */
 function boot(tries){

@@ -1508,15 +1508,31 @@
       if (n > 0) { skip++; pushed -= n; history.go(-n); }
     }, 250);
   }
-  window.addEventListener('popstate', function () {
-    if (skip > 0) { skip--; return; }
-    if (pushed > 0) pushed--;
+  /* sabse upar wali cheez band karo; kuch band hua to true, home par ho to false */
+  function closeTop() {
     if (!libBg.hidden) libBg.hidden = true;
     else if (!sheet.hidden) sheet.hidden = true;
     else if (dr.classList.contains('open')) { dr.classList.remove('open'); if (dbg) dbg.classList.remove('open'); }
     else if (home.hidden) { var t = document.querySelector('.tab[data-view="chapters"]'); if (t) t.click(); }
+    else return false;
+    return true;
+  }
+  window.addEventListener('popstate', function () {
+    if (skip > 0) { skip--; return; }
+    if (pushed > 0) pushed--;
+    closeTop();
     sync();
   });
+  /* Android back button / side swipe: ek step peeche, sirf home par app band */
+  try {
+    var CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp && CapApp.addListener) {
+      CapApp.addListener('backButton', function () {
+        if (closeTop()) sync();
+        else if (CapApp.exitApp) CapApp.exitApp();
+      });
+    }
+  } catch (e) {}
   var mo = new MutationObserver(sync);
   mo.observe(dr, { attributes: true, attributeFilter: ['class'] });
   [sheet, libBg, home].forEach(function (el) { mo.observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
