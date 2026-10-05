@@ -338,7 +338,11 @@
   .dr-item small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-top: 1px; }
   .dr-sep { height: 1px; background: var(--line); margin: 8px 6px; }
   .dr-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 10px 10px 2px; }
-  .dash { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; }
+  .dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 4px; }
+  .dcard.mini { padding: 12px; min-height: 112px; }
+  .dcard.mini .big { top: 10px; right: 11px; font-size: 20px; }
+  .dcard.mini b { font-size: 13px; }
+  .dcard.mini small { font-size: 11px; }
   .dcard { text-align: left; padding: 14px; border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(160deg, var(--surface), var(--bg2)); position: relative; overflow: hidden; min-height: 104px; display: flex; flex-direction: column; transition: transform .12s; }
   .dcard:active { transform: scale(.97); }
   .dcard .ic { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 9px; }
@@ -482,9 +486,9 @@
         <div class="track"><i id="stBar"></i></div>
         <div class="week" id="stWeek"></div>
       </div>
-      <button class="dcard" id="dFav" type="button"><span class="ic" style="background:linear-gradient(135deg,#f59e0b,#f97316)"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span><span class="big" id="dFavN">0</span><b>Favourites</b><small>Pasandida chapters</small></button>
-      <button class="dcard" id="dBm" type="button"><span class="ic" style="background:linear-gradient(135deg,#ec4899,#f43f5e)"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span><span class="big" id="dBmN">0</span><b>Bookmarks &amp; Notes</b><small>Saved pages aur notes</small></button>
-      <button class="dcard" id="dFc" type="button" style="grid-column:1 / -1;min-height:0;flex-direction:row;align-items:center;gap:12px"><span class="ic" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);margin:0"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></svg></span><span style="flex:1"><b>Flashcards</b><small>Aapke highlights se revision cards</small></span><span class="big" id="dFcN" style="position:static">0</span></button>
+      <button class="dcard mini" id="dFav" type="button"><span class="ic" style="background:linear-gradient(135deg,#f59e0b,#f97316)"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span><span class="big" id="dFavN">0</span><b>Favourites</b><small>Pasandida</small></button>
+      <button class="dcard mini" id="dBm" type="button"><span class="ic" style="background:linear-gradient(135deg,#ec4899,#f43f5e)"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span><span class="big" id="dBmN">0</span><b>Bookmarks</b><small>Pages &amp; notes</small></button>
+      <button class="dcard mini" id="dFc" type="button"><span class="ic" style="background:linear-gradient(135deg,#8b5cf6,#6366f1)"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></svg></span><span class="big" id="dFcN">0</span><b>Flashcards</b><small>Revision cards</small></button>
     </div>
 
     <label class="search" id="searchBox">
