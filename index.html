@@ -263,7 +263,7 @@
   .select, .field { width: 100%; background: var(--surface); border: 1px solid var(--line); color: var(--text); border-radius: 13px; padding: 0 12px; height: 44px; font: inherit; font-size: 14.5px; outline: 0; -webkit-user-select: text; user-select: text; }
   .select:focus, .field:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
   .select option { background: #131d35; color: #e8eefb; }
-  .chat { display: flex; flex-direction: column; gap: 12px; padding: 10px 0 120px; }
+  .chat { display: flex; flex-direction: column; gap: 12px; padding: 10px 2px 12px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .msg { max-width: 92%; padding: 12px 14px; border-radius: 18px; font-size: 15px; line-height: 1.55; -webkit-user-select: text; user-select: text; word-wrap: break-word; overflow-wrap: anywhere; animation: rise .22s ease both; }
   .msg.user { align-self: flex-end; background: linear-gradient(135deg, #2563eb, #0891b2); color: #fff; border-bottom-right-radius: 6px; white-space: pre-wrap; }
   .msg.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 6px; color: #dbe5f8; }
@@ -283,14 +283,68 @@
   .suggest { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
   .suggest button { padding: 9px 13px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--surface); border: 1px solid var(--line); color: #c9d7f0; text-align: left; transition: transform .12s, border-color .2s; }
   .suggest button:active { transform: scale(.96); border-color: var(--blue); }
-  .composer { position: fixed; left: 0; right: 0; bottom: calc(var(--nav-h) + var(--safe-b)); z-index: 25; padding: 10px 12px; background: linear-gradient(180deg, rgba(11,18,32,0), rgba(11,18,32,.95) 35%); }
-  .composer-in { max-width: 1040px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 6px 6px 6px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .composer { position: static; flex: none; padding: 8px 0 10px; background: none; }
+  .composer-in { max-width: 1040px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 6px 6px 6px 16px; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
   .composer-in:focus-within { border-color: var(--blue); }
   .composer textarea { flex: 1; min-width: 0; resize: none; max-height: 120px; background: none; border: 0; outline: 0; color: var(--text); font: inherit; font-size: 15px; line-height: 1.4; padding: 9px 0; -webkit-user-select: text; user-select: text; }
   .composer textarea::placeholder { color: #62759a; }
   .send { width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; background: linear-gradient(135deg, var(--cyan), var(--blue)); transition: transform .12s, opacity .2s; }
   .send svg { width: 20px; height: 20px; stroke: #04112b; stroke-width: 2.4; }
   .send:active { transform: scale(.9); } .send:disabled { opacity: .4; }
+
+  /* Ask AI = fixed full-height panel: header, scrolling chat, input. Input can never overlap the messages. */
+  #view-ai:not([hidden]) { position: fixed; left: 0; right: 0; top: var(--bar-h, 84px); bottom: calc(var(--nav-h) + var(--safe-b));
+    z-index: 10; display: flex; flex-direction: column; max-width: 1040px; margin: 0 auto; padding: 12px 16px 0; animation: none; }
+  #view-ai .ai-head, #view-ai .ai-scope { flex: none; }
+  #view-ai .ai-scope { margin: 12px 0 2px; }
+  html.ai-on, html.ai-on body { overflow: hidden; }
+  html.kb .nav { display: none; }
+  html.kb #view-ai:not([hidden]) { bottom: 0; }
+
+  /* ---------- hamburger drawer + home cards ---------- */
+  .brand { min-width: 0; } .brand h1, .brand p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 430px) { .appbar .badge { display: none; } }
+  .menu-btn { width: 42px; height: 42px; border-radius: 13px; flex: none; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); color: var(--text); }
+  .menu-btn:active { transform: scale(.92); background: var(--surface2); }
+  .menu-btn svg { width: 22px; height: 22px; }
+  .drawer-bg { position: fixed; inset: 0; z-index: 70; background: rgba(2,6,16,.62); opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .drawer-bg.open { opacity: 1; visibility: visible; }
+  .drawer { position: fixed; top: 0; bottom: 0; left: 0; width: min(82vw, 330px); z-index: 71; transform: translateX(-102%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    background: linear-gradient(180deg, #111c36, #0b1220 70%); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: calc(var(--safe-t) + 18px) 14px calc(var(--safe-b) + 14px); overflow-y: auto; }
+  .drawer.open { transform: none; box-shadow: 0 0 60px rgba(0,0,0,.6); }
+  .dr-head { display: flex; align-items: center; gap: 12px; padding: 4px 6px 16px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .dr-head .logo { width: 46px; height: 46px; }
+  .dr-head b { display: block; font-size: 17px; } .dr-head small { color: var(--muted); font-size: 12px; }
+  .dr-item { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 13px 10px; border-radius: 14px; font-size: 15.5px; font-weight: 600; color: var(--text); transition: background .15s; }
+  .dr-item:active { background: var(--surface2); }
+  .dr-item svg { width: 22px; height: 22px; flex: none; color: var(--cyan); }
+  .dr-item .cnt { margin-left: auto; min-width: 26px; text-align: center; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid var(--line); color: var(--muted); }
+  .dr-item small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+  .dr-sep { height: 1px; background: var(--line); margin: 8px 6px; }
+  .dr-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 10px 10px 2px; }
+  .dash { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; }
+  .dcard { text-align: left; padding: 14px; border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(160deg, var(--surface), var(--bg2)); position: relative; overflow: hidden; min-height: 104px; display: flex; flex-direction: column; transition: transform .12s; }
+  .dcard:active { transform: scale(.97); }
+  .dcard .ic { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 9px; }
+  .dcard .ic svg { width: 19px; height: 19px; stroke: #fff; }
+  .dcard b { font-size: 14.5px; line-height: 1.25; } .dcard small { display: block; margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+  .dcard .big { position: absolute; top: 12px; right: 14px; font-size: 24px; font-weight: 800; color: #fff; }
+  .dcard.recent { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; gap: 12px; background: linear-gradient(135deg, #1d3a8a, #0f4c75); border-color: rgba(96,165,250,.35); }
+  .dcard.recent .ic { margin: 0; background: rgba(255,255,255,.16); } .dcard.recent small { color: #bcd3f5; }
+  .dcard.recent .bar { height: 5px; border-radius: 4px; background: rgba(255,255,255,.18); margin-top: 8px; overflow: hidden; } .dcard.recent .bar i { display: block; height: 100%; background: var(--cyan); border-radius: 4px; }
+  .dcard.recent .play { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex: none; } .dcard.recent .play svg { width: 18px; height: 18px; fill: #1d3a8a; stroke: none; }
+  .fav { margin-left: auto; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none; color: #5c6f93; }
+  .fav svg { width: 21px; height: 21px; }
+  .fav.on { color: var(--amber); } .fav.on svg { fill: currentColor; }
+  .chapter .fav + .go { margin-left: 0; }
+  .lib-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 6px; border-bottom: 1px solid var(--line); }
+  .lib-row:active { background: var(--surface2); }
+  .lib-row b { display: block; font-size: 14.5px; } .lib-row small { color: var(--muted); font-size: 12px; }
+  .lib-row .pill { margin-left: auto; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(34,211,238,.12); color: var(--cyan); border: 1px solid rgba(34,211,238,.3); white-space: nowrap; }
+  .lib-grp { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--cyan); margin: 14px 0 2px; }
+  .lib-note { padding: 10px 12px; margin: 6px 0; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); font-size: 14px; line-height: 1.45; width: 100%; text-align: left; display: block; }
+  .lib-note i { font-style: normal; font-weight: 700; color: var(--amber); margin-right: 6px; }
+  .lib-empty { padding: 22px 8px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.6; }
   .sheet-bg { position: fixed; inset: 0; z-index: 60; background: rgba(2,6,16,.7); display: flex; align-items: flex-end; justify-content: center; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
   .sheet-bg[hidden] { display: none; }
   .sheet { width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; background: #101a31; border: 1px solid var(--line); border-radius: 26px 26px 0 0; padding: 20px 18px calc(22px + var(--safe-b)); animation: rise .25s ease both; }
@@ -362,6 +416,7 @@
 
 <header class="appbar">
   <div class="appbar-in">
+    <button class="menu-btn" id="menuOpen" type="button" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="logo" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h12v16H6a2 2 0 00-2 2V5z"/><path d="M8 7h6M8 11h6"/></svg>
     </div>
@@ -382,6 +437,18 @@
       <h2>SKC Physics Book PDF</h2>
       <p>Chapter wise PDFs, ready to read anytime &mdash; no internet needed. Tap a chapter to open it.</p>
       <div class="hero-stats"><span>17 Chapters</span><span>Works Offline</span></div>
+    </div>
+
+
+    <div class="dash" id="dash">
+      <button class="dcard recent" id="dRecent" type="button">
+        <span class="ic" style="background:rgba(255,255,255,.16)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span style="min-width:0;flex:1"><small style="margin:0;letter-spacing:.8px;text-transform:uppercase;font-weight:700">Recent Read Chapter</small><b id="dRecentT">Abhi koi chapter nahi padha</b><small id="dRecentS">Koi bhi chapter kholo, yahan se continue karo</small><span class="bar"><i id="dRecentBar" style="width:0%"></i></span></span>
+        <span class="play"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></span>
+      </button>
+      <button class="dcard" id="dFav" type="button"><span class="ic" style="background:linear-gradient(135deg,#f59e0b,#f97316)"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span><span class="big" id="dFavN">0</span><b>Favourites</b><small>Pasandida chapters</small></button>
+      <button class="dcard" id="dBm" type="button"><span class="ic" style="background:linear-gradient(135deg,#ec4899,#f43f5e)"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span><span class="big" id="dBmN">0</span><b>Bookmarks &amp; Notes</b><small>Saved pages aur notes</small></button>
+      <button class="dcard" id="dFc" type="button" style="grid-column:1 / -1;min-height:0;flex-direction:row;align-items:center;gap:12px"><span class="ic" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);margin:0"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></svg></span><span style="flex:1"><b>Flashcards</b><small>Aapke highlights se revision cards</small></span><span class="big" id="dFcN" style="position:static">0</span></button>
     </div>
 
     <label class="search" id="searchBox">
@@ -569,7 +636,7 @@
     <div class="chat" id="chat" aria-live="polite"></div>
     <form class="composer" id="composer" autocomplete="off">
       <div class="composer-in">
-        <textarea id="aiInput" rows="1" placeholder="Apna sawal likho… (chapter, topic, concept, question)" aria-label="Your question"></textarea>
+        <textarea id="aiInput" rows="1" placeholder="Apna sawal likho…" aria-label="Your question"></textarea>
         <button class="send" id="aiSend" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </div>
     </form>
@@ -646,11 +713,9 @@
     <div class="row"><label for="setKey">Gemini API key</label>
       <div class="pw"><input class="field" id="setKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="AIza…">
       <button class="btn2" id="showKey" type="button">Show</button></div></div>
-    <div class="row"><label for="setModel">Gemini model name</label>
-      <input class="field" id="setModel" type="text" autocapitalize="off" spellcheck="false" placeholder="gemini-2.5-flash"></div>
     <div class="box">
       <h4>On-device Gemma 3 1B (offline)</h4>
-      <p class="hint" style="margin:0">Model file (.task, ~528 MB) <b>models/gemma3-1b-it-int4.task</b> mein rakho, ya neeche se file chuno. Phone browser ko WebGPU support chahiye.</p>
+      <p class="hint" id="gemmaHint" style="margin:0">Model file (.task, ~528 MB) <b>models/gemma3-1b-it-int4.task</b> mein rakho, ya neeche se file chuno. Phone browser ko WebGPU support chahiye.</p>
       <div class="btn-row">
         <button class="btn2" id="loadGemma" type="button">Load from models/ folder</button>
         <button class="btn2" id="pickGemma" type="button">Choose file&hellip;</button>
@@ -659,6 +724,29 @@
       <div class="status" id="gemmaStatus">Not loaded</div>
     </div>
     <div class="sheet-actions"><button class="btn ghost" id="sheetClose" type="button">Close</button><button class="btn" id="sheetSave" type="button">Save</button></div>
+  </div>
+</div>
+
+
+<div class="drawer-bg" id="drawerBg"></div>
+<aside class="drawer" id="drawer" aria-label="Menu">
+  <div class="dr-head"><div class="logo"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h12v16H6a2 2 0 00-2 2V5z"/><path d="M8 7h6M8 11h6"/></svg></div><div><b>11th SKC Physics</b><small>Physics Crush &bull; Class Notes</small></div></div>
+  <button class="dr-item" data-act="home" type="button"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>Home</button>
+  <button class="dr-item" data-act="recent" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Recent Read Chapter<small id="drRecentS">Abhi koi nahi</small></span></button>
+  <button class="dr-item" data-act="fav" type="button"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>Favourites<span class="cnt" id="drFav">0</span></button>
+  <button class="dr-item" data-act="bm" type="button"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Bookmarks &amp; Notes<span class="cnt" id="drBm">0</span></button>
+  <button class="dr-item" data-act="fc" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></svg>Flashcards<span class="cnt" id="drFc">0</span></button>
+  <div class="dr-sep"></div>
+  <button class="dr-item" data-act="ai" type="button"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"/></svg>Ask AI</button>
+  <button class="dr-item" data-act="mentor" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.2-6 8-6s6.8 2 8 6"/></svg>Meet Your Mentor</button>
+  <button class="dr-item" data-act="contact" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" style="fill:currentColor"/></svg><span>Contact Us<small>Instagram &middot; @saleem.nitt</small></span></button>
+</aside>
+
+<div class="sheet-bg" id="libBg" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Library">
+    <h3 id="libTitle"></h3>
+    <div id="libBody"></div>
+    <div class="sheet-actions"><button class="btn ghost" id="libClose" type="button">Close</button></div>
   </div>
 </div>
 
@@ -692,6 +780,7 @@
     toastEl.textContent = msg; toastEl.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2200);
   }
+  window.__toast = toast; window.__CHAPTERS = CHAPTERS;
 
   /* chapter buttons */
   document.getElementById('grid').addEventListener('click', function (e) {
@@ -727,9 +816,18 @@
       ['chapters', 'ai', 'mentor', 'contact'].forEach(function (v) {
         document.getElementById('view-' + v).hidden = v !== t.dataset.view;
       });
+      var onAi = t.dataset.view === 'ai';
+      document.documentElement.classList.toggle('ai-on', onAi);
+      if (!onAi) document.documentElement.classList.remove('kb');
       window.scrollTo({ top: 0, behavior: 'auto' });
+      if (onAi) { setBar(); var c = document.getElementById('chat'); if (c) c.scrollTop = c.scrollHeight; }
     });
   });
+  function setBar() { var a = document.querySelector('.appbar'); if (a) document.documentElement.style.setProperty('--bar-h', a.offsetHeight + 'px'); }
+  setBar(); window.addEventListener('resize', setBar); window.addEventListener('load', setBar);
+  var aiIn = document.getElementById('aiInput'), kbT = null;
+  aiIn.addEventListener('focus', function () { clearTimeout(kbT); document.documentElement.classList.add('kb'); setTimeout(function () { var c = document.getElementById('chat'); c.scrollTop = c.scrollHeight; }, 250); });
+  aiIn.addEventListener('blur', function () { kbT = setTimeout(function () { document.documentElement.classList.remove('kb'); }, 120); });
 
   /* copy handle */
   document.getElementById('copyBtn').addEventListener('click', function () {
@@ -754,7 +852,7 @@
   var OUTLINE = window.KB_OUTLINE || [], KB = window.KB || [];
   var $ = function (id) { return document.getElementById(id); };
   var chatEl = $('chat'), input = $('aiInput'), sendBtn = $('aiSend'), statusEl = $('aiStatus');
-  var S = { mode: 'auto', key: '', model: 'gemini-2.5-flash' };
+  var S = { mode: 'auto', key: '' };
   var history = [];            // {role:'user'|'ai', text, err?}
   var busy = false, llm = null;
 
@@ -829,7 +927,7 @@
     flushP(); closeL();
     return out.join('');
   }
-  function scrollEnd() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+  function scrollEnd() { chatEl.scrollTop = chatEl.scrollHeight; }
   function addMsg(role, text, opts) {
     opts = opts || {};
     var el = document.createElement('div');
@@ -876,21 +974,53 @@
   }
   window.addEventListener('online', updateStatus); window.addEventListener('offline', updateStatus);
 
-  /* ---------- Gemini (online) ---------- */
+  /* ---------- Gemini (online): newest model first, automatic fallback ---------- */
+  var FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
+  var chainMem = null, cool = {};
   function GErr(status, msg) { this.status = status; this.msg = msg || ''; }
+  function isKeyErr(e) { return e instanceof GErr && (e.status === 401 || e.status === 403 || (e.status === 400 && /api key|API_KEY/i.test(e.msg))); }
   function friendly(e) {
     if (e instanceof GErr) {
-      if (e.status === 400 && /api key|API_KEY/i.test(e.msg)) return 'Gemini API key galat lag rahi hai. Settings mein dobara check karo.';
-      if (e.status === 401 || e.status === 403) return 'Gemini ne is key ko allow nahi kiya (403). Key ya uski restrictions check karo.';
-      if (e.status === 404) return 'Model naam galat hai (' + S.model + '). Settings mein sahi Gemini model naam daalo.';
+      if (isKeyErr(e)) return e.status === 400 ? 'Gemini API key galat lag rahi hai. Settings mein dobara check karo.' : 'Gemini ne is key ko allow nahi kiya (' + e.status + '). Key ya uski restrictions check karo.';
       if (e.status === 429) return 'Gemini ki free limit abhi poori ho gayi hai. Thodi der baad try karo.';
-      return 'Gemini error ' + e.status + (e.msg ? ': ' + e.msg : '');
+      if (e.status === 503 || e.status === 500) return 'Gemini abhi busy hai. Thodi der baad try karo.';
+      return 'Gemini se jawab nahi aaya' + (e.status ? ' (' + e.status + ')' : '') + (e.msg ? ': ' + e.msg : '') + '.';
     }
     return 'Internet ya Gemini se connect nahi ho paya.';
   }
+  function modelKind(n) {
+    var m = /^gemini-(\d+(?:\.\d+)?)-flash(-lite)?(-preview[\w.-]*)?$/.exec(n);
+    return m ? { v: parseFloat(m[1]), lite: m[2] ? 1 : 0, pre: m[3] ? 1 : 0 } : null;
+  }
+  async function modelChain() {
+    if (chainMem && Date.now() - chainMem.t < 6 * 3600e3) return chainMem.list;
+    var list = [], cached = load('skc_ai_models', null);
+    if (cached && cached.list && Date.now() - cached.t < 24 * 3600e3) list = cached.list;
+    else {
+      var res = null;
+      try { res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': S.key } }); } catch (e) { res = null; }
+      if (res && res.ok) {
+        var j = await res.json(), found = [];
+        (j.models || []).forEach(function (m) {
+          var n = String(m.name || '').replace(/^models\//, ''), k = modelKind(n);
+          if (k && (m.supportedGenerationMethods || []).indexOf('generateContent') > -1) found.push({ n: n, k: k });
+        });
+        found.sort(function (x, y) { return y.k.v - x.k.v || x.k.lite - y.k.lite || x.k.pre - y.k.pre; });
+        list = found.slice(0, 3).map(function (x) { return x.n; });
+        if (list.length) save('skc_ai_models', { t: Date.now(), list: list });
+      } else if (res) {
+        var msg = ''; try { var jj = await res.json(); msg = jj.error && jj.error.message || ''; } catch (e) {}
+        if (res.status === 400 || res.status === 401 || res.status === 403) throw new GErr(res.status, msg);
+      }
+    }
+    var out = []; list.concat(FALLBACK_MODELS).forEach(function (n) { if (out.indexOf(n) < 0) out.push(n); });
+    out = out.slice(0, 6);
+    chainMem = { t: Date.now(), list: out };
+    return out;
+  }
   function gemParts(j) { var c = j && j.candidates && j.candidates[0], p = c && c.content && c.content.parts || [], t = ''; p.forEach(function (x) { if (x.text && !x.thought) t += x.text; }); return t; }
-  async function askGemini(sys, msgs, onText) {
-    var base = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(S.model);
+  async function callModel(model, sys, msgs, onText) {
+    var base = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model);
     var body = JSON.stringify({
       systemInstruction: { parts: [{ text: sys }] },
       contents: msgs.map(function (m) { return { role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }; }),
@@ -899,27 +1029,57 @@
     var res = await fetch(base + ':streamGenerateContent?alt=sse', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': S.key }, body: body });
     if (!res.ok) { var msg = ''; try { var j = await res.json(); msg = j.error && j.error.message || ''; } catch (e) {} throw new GErr(res.status, msg); }
     var full = '';
-    if (!res.body || !res.body.getReader) { var jj = await res.text(); try { JSON.parse(jj).forEach(function (x) { full += gemParts(x); }); } catch (e) {} onText(full); return full; }
-    var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
-    for (;;) {
-      var r = await reader.read(); if (r.done) break;
-      buf += dec.decode(r.value, { stream: true });
-      var i;
-      while ((i = buf.indexOf('\n')) > -1) {
-        var line = buf.slice(0, i).replace(/\r$/, '').trim(); buf = buf.slice(i + 1);
-        if (line.indexOf('data:') !== 0) continue;
-        var d = line.slice(5).trim(); if (!d || d === '[DONE]') continue;
-        try { var t = gemParts(JSON.parse(d)); if (t) { full += t; onText(full); } } catch (e) {}
+    if (!res.body || !res.body.getReader) { var jj = await res.text(); try { JSON.parse(jj).forEach(function (x) { full += gemParts(x); }); } catch (e) {} if (full) onText(full); }
+    else {
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
+      for (;;) {
+        var r = await reader.read(); if (r.done) break;
+        buf += dec.decode(r.value, { stream: true });
+        var i;
+        while ((i = buf.indexOf('\n')) > -1) {
+          var line = buf.slice(0, i).replace(/\r$/, '').trim(); buf = buf.slice(i + 1);
+          if (line.indexOf('data:') !== 0) continue;
+          var d = line.slice(5).trim(); if (!d || d === '[DONE]') continue;
+          try { var t = gemParts(JSON.parse(d)); if (t) { full += t; onText(full); } } catch (e) {}
+        }
       }
     }
-    if (!full) throw new GErr(0, 'Empty answer (the response may have been blocked).');
+    if (!full) throw new GErr(0, 'Khaali jawab aaya.');
     return full;
+  }
+  async function askGemini(sys, msgs, onText) {
+    var models = await modelChain(), avail = models.filter(function (m) { return !(cool[m] > Date.now()); }), lastErr = null;
+    if (!avail.length) { cool = {}; avail = models; }
+    for (var i = 0; i < avail.length; i++) {
+      try { return { text: await callModel(avail[i], sys, msgs, onText), model: avail[i] }; }
+      catch (e) {
+        lastErr = e;
+        if (!(e instanceof GErr) || isKeyErr(e)) throw e;          // network or key problem: other models will not help
+        if (e.status === 429 || e.status === 503) cool[avail[i]] = Date.now() + 60000;
+        chainMem = (e.status === 404 || e.status === 400) ? null : chainMem;
+      }                                                              // otherwise: try the next model
+    }
+    throw lastErr || new GErr(0, 'Koi model available nahi.');
   }
 
   /* ---------- Gemma on-device (offline) ---------- */
   var gStatus = $('gemmaStatus');
   function gSay(t, cls) { gStatus.textContent = t; gStatus.className = 'status' + (cls ? ' ' + cls : ''); }
+  var G = null;
+  try { if (window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable('Gemma')) G = window.Capacitor.Plugins.Gemma; } catch (e) { G = null; }
+  async function nativeLoad(pick) {
+    if (pick) {
+      gSay('File copy ho rahi hai… 0%');
+      var h = await G.addListener('progress', function (p) { gSay('Model app mein copy ho raha hai… ' + p.pct + '% (sirf ek baar)'); });
+      try { await G.pickModel(); } finally { h.remove(); }
+    }
+    gSay('Gemma load ho raha hai… (kuch seconds)');
+    await G.load();
+    llm = { native: true };
+    gSay('Gemma ready ✓ (model app mein saved hai, dobara choose karne ki zarurat nahi)', 'ok'); updateStatus();
+  }
   async function loadGemma(source) {
+    if (G) return nativeLoad(source === 'pick');
     if (!('gpu' in navigator)) throw new Error('Is browser/WebView mein WebGPU nahi hai, isliye on-device AI nahi chalega.');
     gSay('Loading engine…');
     var tries = [['./libs/genai_bundle.mjs', './libs/wasm'], ['https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/genai_bundle.mjs', 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm']];
@@ -936,6 +1096,7 @@
   async function askGemma(q, ctx, onText) {
     var prompt = '<start_of_turn>user\n' + RULES + '\n\nBOOK CONTEXT:\n' + (ctx || '(none)') + '\n\nStudent question: ' + q + '<end_of_turn>\n<start_of_turn>model\n';
     var full = '';
+    if (llm.native) { var r = await G.generate({ prompt: prompt }); full = String(r.text || '').replace(/<end_of_turn>[\s\S]*$/, '').trim(); onText(full); return full; }
     await llm.generateResponse(prompt, function (part, done) { full += part; onText(full.replace(/<end_of_turn>[\s\S]*$/, '')); });
     return full.replace(/<end_of_turn>[\s\S]*$/, '').trim();
   }
@@ -972,9 +1133,9 @@
         for (var hi = 0; hi + 1 < hs.length; hi++) { if (hs[hi].role === 'user' && hs[hi + 1].role === 'ai' && !hs[hi + 1].err) { past.push(hs[hi], hs[hi + 1]); hi++; } }
         past = past.slice(-6);
         while (past.length && past[0].role !== 'user') past.shift();
-        try { label = 'Gemini · online'; answer = await askGemini(sys, past.concat([{ role: 'user', text: q }]), onText); }
+        try { var g = await askGemini(sys, past.concat([{ role: 'user', text: q }]), onText); answer = g.text; label = 'Gemini · ' + g.model; }
         catch (e) {
-          if (S.mode === 'auto' && llm && !(e instanceof GErr)) { engine = 'device'; docs = search(q, ch, 2); } else throw e;
+          if (S.mode === 'auto' && llm && !isKeyErr(e)) { engine = 'device'; docs = search(q, ch, 2); bubble.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; } else throw e;
         }
       }
       if (engine === 'device') { label = 'Gemma · on-device'; answer = await askGemma(q, buildContext(docs, 2400), onText); }
@@ -995,25 +1156,171 @@
   $('aiClear').addEventListener('click', function () { if (busy) return; history = []; save('skc_ai_chat', []); renderAll(); toast('Chat cleared'); });
 
   var sheet = $('sheet');
-  function openSheet() { $('setMode').value = S.mode; $('setKey').value = S.key; $('setModel').value = S.model; sheet.hidden = false; }
+  function openSheet() { $('setMode').value = S.mode; $('setKey').value = S.key; sheet.hidden = false; }
   function closeSheet() { sheet.hidden = true; }
   $('aiSettings').addEventListener('click', openSheet);
   $('sheetClose').addEventListener('click', closeSheet);
   sheet.addEventListener('click', function (e) { if (e.target === sheet) closeSheet(); });
   $('showKey').addEventListener('click', function () { var f = $('setKey'), s = f.type === 'password'; f.type = s ? 'text' : 'password'; this.textContent = s ? 'Hide' : 'Show'; });
   $('sheetSave').addEventListener('click', function () {
-    S.mode = $('setMode').value; S.key = $('setKey').value.trim(); S.model = $('setModel').value.trim() || 'gemini-2.5-flash';
+    S.mode = $('setMode').value; S.key = $('setKey').value.trim(); delete S.model;
     save('skc_ai_settings', S); updateStatus(); closeSheet(); toast('Settings saved');
   });
   function runLoad(src) {
     $('loadGemma').disabled = $('pickGemma').disabled = true;
     loadGemma(src).catch(function (e) { gSay(e && e.message ? e.message : 'Gemma load nahi hua.', 'bad'); }).then(function () { $('loadGemma').disabled = $('pickGemma').disabled = false; });
   }
-  $('loadGemma').addEventListener('click', function () { runLoad('models/gemma3-1b-it-int4.task'); });
-  $('pickGemma').addEventListener('click', function () { $('gemmaFile').click(); });
+  $('loadGemma').addEventListener('click', function () { runLoad(G ? 'saved' : 'models/gemma3-1b-it-int4.task'); });
+  $('pickGemma').addEventListener('click', function () { if (G) runLoad('pick'); else $('gemmaFile').click(); });
   $('gemmaFile').addEventListener('change', function () { if (this.files && this.files[0]) runLoad(this.files[0]); });
 
+  if (G) {
+    $('loadGemma').textContent = 'Load saved model';
+    $('gemmaHint').innerHTML = 'Gemma 3 1B <b>.task</b> file (~528 MB) <b>Choose file</b> se ek baar chuno. App use apne andar copy karke hamesha yaad rakhegi, phir offline chalega.';
+    G.status().then(function (st) {
+      if (st && st.hasModel) { gSay('Saved model mila. Load ho raha hai…'); nativeLoad(false).catch(function (e) { gSay(e && e.message ? e.message : 'Gemma load nahi hua.', 'bad'); }); }
+    }).catch(function () {});
+  }
   renderAll(); updateStatus();
+})();
+</script>
+
+<script>
+/* ============ menu, favourites, library (reads what the PDF viewer saved) ============ */
+(function () {
+  'use strict';
+  var IG = 'https://www.instagram.com/saleem.nitt/';
+  var $ = function (id) { return document.getElementById(id); };
+  function lsj(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function lss(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var CH = [];
+  [].slice.call(document.querySelectorAll('.chapter')).forEach(function (b) {
+    var n = +b.dataset.n, t = (b.querySelector('.title') || {}).textContent || 'Chapter';
+    var it = (window.__CHAPTERS || []).filter(function (c) { return c.n === n; })[0];
+    CH.push({ n: n, title: t, file: it ? it.file : '', el: b });
+  });
+  function chOf(n) { return CH.filter(function (c) { return c.n === n; })[0]; }
+  function label(c) { return 'Ch ' + pad(c.n) + ' · ' + c.title; }
+  function openCh(c, extra) { window.location.href = 'pdf-viewer.html?f=' + encodeURIComponent(c.file) + '&t=' + encodeURIComponent(label(c)) + (extra || ''); }
+  function show(v) { var t = document.querySelector('.tab[data-view="' + v + '"]'); if (t) t.click(); }
+  function openIG() { try { window.location.href = IG; } catch (e) { window.open(IG, '_blank'); } }
+
+  /* ---- data ---- */
+  function favs() { return lsj('skc_fav', []); }
+  function recents() {
+    var pr = lsj('zl_prog', {}), out = [];
+    CH.forEach(function (c) { var e = pr[c.file]; if (e && e.ts) out.push({ c: c, n: e.n || 1, N: e.N || 0, ts: e.ts }); });
+    out.sort(function (a, b) { return b.ts - a.ts; });
+    return out;
+  }
+  function bmData() {
+    var out = [], total = 0;
+    CH.forEach(function (c) {
+      var fk = encodeURIComponent(c.file), b = lsj('vpair_bm_' + fk, []), nt = lsj('vpair_note_' + fk, []);
+      if (b.length || nt.length) { out.push({ c: c, bm: b, notes: nt }); total += b.length + nt.length; }
+    });
+    return { items: out, total: total };
+  }
+  function fcData() {
+    var out = [], total = 0;
+    CH.forEach(function (c) {
+      var a = lsj('vpair_ann_' + encodeURIComponent(c.file), null), cnt = 0;
+      if (a && a.pages) Object.keys(a.pages).forEach(function (k) { (a.pages[k] || []).forEach(function (s) { if (s.k === 'h') cnt++; }); });
+      if (cnt) { out.push({ c: c, cnt: cnt }); total += cnt; }
+    });
+    return { items: out, total: total };
+  }
+
+  /* ---- counters + recent card ---- */
+  function refresh() {
+    var f = favs().length, b = bmData().total, k = fcData().total, r = recents()[0];
+    $('dFavN').textContent = f; $('drFav').textContent = f;
+    $('dBmN').textContent = b; $('drBm').textContent = b;
+    $('dFcN').textContent = k; $('drFc').textContent = k;
+    if (r) {
+      $('dRecentT').textContent = label(r.c);
+      $('dRecentS').textContent = 'Page ' + r.n + (r.N ? ' / ' + r.N : '') + ' · continue karo';
+      $('dRecentBar').style.width = (r.N ? Math.min(100, Math.round(r.n / r.N * 100)) : 0) + '%';
+      $('drRecentS').textContent = label(r.c);
+    } else {
+      $('dRecentT').textContent = 'Abhi koi chapter nahi padha'; $('dRecentS').textContent = 'Koi bhi chapter kholo, yahan se continue karo';
+      $('dRecentBar').style.width = '0%'; $('drRecentS').textContent = 'Abhi koi nahi';
+    }
+    CH.forEach(function (c) { var s = c.el.querySelector('.fav'); if (s) s.classList.toggle('on', favs().indexOf(c.n) > -1); });
+  }
+
+  /* ---- star on every chapter ---- */
+  CH.forEach(function (c) {
+    var s = document.createElement('span'); s.className = 'fav'; s.setAttribute('role', 'button'); s.setAttribute('aria-label', 'Favourite');
+    s.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>';
+    var go = c.el.querySelector('.go'); c.el.insertBefore(s, go);
+  });
+  $('grid').addEventListener('click', function (e) {
+    var s = e.target.closest('.fav'); if (!s) return;
+    e.stopPropagation(); e.preventDefault();
+    var c = CH.filter(function (x) { return x.el === s.closest('.chapter'); })[0], f = favs(), i = f.indexOf(c.n);
+    if (i > -1) f.splice(i, 1); else f.push(c.n);
+    lss('skc_fav', f); refresh();
+    toastMsg(i > -1 ? 'Favourite se hataya' : 'Favourite mein joda gaya');
+  }, true);
+
+  /* ---- library sheet ---- */
+  var libBg = $('libBg');
+  function lib(title, html) { $('libTitle').textContent = title; $('libBody').innerHTML = html; libBg.hidden = false; }
+  function closeLib() { libBg.hidden = true; }
+  $('libClose').addEventListener('click', closeLib);
+  libBg.addEventListener('click', function (e) { if (e.target === libBg) closeLib(); });
+  function rowHtml(i, title, sub, pill) { return '<button class="lib-row" type="button" data-i="' + i + '"><span><b>' + esc(title) + '</b><small>' + esc(sub) + '</small></span>' + (pill ? '<span class="pill">' + esc(pill) + '</span>' : '') + '</button>'; }
+  var current = [];   // click actions for the open sheet
+  function wire() { [].slice.call($('libBody').querySelectorAll('[data-i]')).forEach(function (b) { b.addEventListener('click', function () { var fn = current[+b.dataset.i]; if (fn) fn(); }); }); }
+
+  function showRecent() {
+    var r = recents(); current = [];
+    if (!r.length) { lib('Recent Read Chapter', '<div class="lib-empty">Abhi tak koi chapter nahi padha.<br>Koi bhi chapter kholo, yahan list ban jayegi.</div>'); return; }
+    lib('Recent Read Chapter', r.slice(0, 8).map(function (x, i) { current.push(function () { openCh(x.c); }); return rowHtml(i, label(x.c), 'Page ' + x.n + (x.N ? ' / ' + x.N : ''), x.N ? Math.round(x.n / x.N * 100) + '%' : ''); }).join('')); wire();
+  }
+  function showFav() {
+    var f = favs(); current = [];
+    if (!f.length) { lib('Favourites', '<div class="lib-empty">Abhi koi favourite nahi.<br>Chapter list mein ☆ star dabao.</div>'); return; }
+    lib('Favourites', f.map(function (n, i) { var c = chOf(n); if (!c) return ''; current.push(function () { openCh(c); }); return rowHtml(current.length - 1, label(c), 'Tap karke kholo', '★'); }).join('')); wire();
+  }
+  function showBm() {
+    var d = bmData(); current = [];
+    if (!d.total) { lib('Bookmarks & Notes', '<div class="lib-empty">Abhi koi bookmark ya note nahi.<br>PDF mein ⋮ menu se page bookmark karo ya note likho.</div>'); return; }
+    var h = '';
+    d.items.forEach(function (it) {
+      h += '<div class="lib-grp">' + esc(label(it.c)) + '</div>';
+      it.bm.forEach(function (p) { current.push(function () { openCh(it.c, '&p=' + p); }); h += rowHtml(current.length - 1, 'Bookmark · Page ' + p, 'Is page par jao', ''); });
+      it.notes.slice().sort(function (a, b) { return a.n - b.n; }).forEach(function (nt) { current.push(function () { openCh(it.c, '&p=' + nt.n); }); h += '<button class="lib-note" type="button" data-i="' + (current.length - 1) + '"><i>p. ' + nt.n + '</i>' + esc(nt.text) + '</button>'; });
+    });
+    lib('Bookmarks & Notes', h); wire();
+  }
+  function showFc() {
+    var d = fcData(); current = [];
+    if (!d.total) { lib('Flashcards', '<div class="lib-empty">Abhi koi highlight nahi.<br>PDF mein pencil dabakar highlighter se text par line khicho, phir flashcards ban jayenge.</div>'); return; }
+    lib('Flashcards', d.items.map(function (it) { current.push(function () { openCh(it.c, '&cards=1'); }); return rowHtml(current.length - 1, label(it.c), it.cnt + ' highlight' + (it.cnt > 1 ? 's' : ''), 'Practice'); }).join('')); wire();
+  }
+
+  /* ---- drawer ---- */
+  var dr = $('drawer'), bg = $('drawerBg');
+  function openDr() { refresh(); dr.classList.add('open'); bg.classList.add('open'); }
+  function closeDr() { dr.classList.remove('open'); bg.classList.remove('open'); }
+  $('menuOpen').addEventListener('click', openDr);
+  bg.addEventListener('click', closeDr);
+  var ACT = { home: function () { show('chapters'); window.scrollTo(0, 0); }, recent: showRecent, fav: showFav, bm: showBm, fc: showFc, ai: function () { show('ai'); }, mentor: function () { show('mentor'); }, contact: openIG };
+  [].slice.call(dr.querySelectorAll('[data-act]')).forEach(function (b) { b.addEventListener('click', function () { closeDr(); var f = ACT[b.dataset.act]; if (f) setTimeout(f, 120); }); });
+  $('dRecent').addEventListener('click', function () { var r = recents()[0]; if (r) openCh(r.c); else toastMsg('Pehle koi chapter kholo'); });
+  $('dFav').addEventListener('click', showFav); $('dBm').addEventListener('click', showBm); $('dFc').addEventListener('click', showFc);
+  function toastMsg(m) { if (window.__toast) window.__toast(m); }
+
+  /* Contact tab -> straight to Instagram */
+  document.querySelector('.tab[data-view="contact"]').addEventListener('click', function (e) { e.stopImmediatePropagation(); openIG(); }, true);
+
+  window.addEventListener('pageshow', refresh);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+  refresh();
 })();
 </script>
 
