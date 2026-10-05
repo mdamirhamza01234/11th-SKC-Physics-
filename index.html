@@ -1007,12 +1007,14 @@
 
   /* ---------- Gemini (online): newest model first, automatic fallback ---------- */
   var FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
+  var VERTEX_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'];
+  function isVertexKey() { return /^AQ\./.test(S.key); }
   var chainMem = null, cool = {};
   function GErr(status, msg) { this.status = status; this.msg = msg || ''; }
   function isKeyErr(e) { return e instanceof GErr && (e.status === 401 || e.status === 403 || (e.status === 400 && /api key|API_KEY/i.test(e.msg))); }
   function friendly(e) {
     if (e instanceof GErr) {
-      if (isKeyErr(e)) return e.status === 400 ? 'Gemini API key galat lag rahi hai. Settings mein dobara check karo.' : 'Gemini ne is key ko allow nahi kiya (' + e.status + '). Key ya uski restrictions check karo.';
+      if (isKeyErr(e)) return (e.status === 400 ? 'Gemini API key galat lag rahi hai. Settings mein dobara check karo.' : 'Gemini ne is key ko allow nahi kiya (' + e.status + '). Key sahi hai? Naya key aistudio.google.com/apikey se banao (AIza... se shuru hota hai).') + (e.msg ? '\n\nGoogle ka message: ' + e.msg.slice(0, 220) : '');
       if (e.status === 429) return 'Gemini ki free limit abhi poori ho gayi hai. Thodi der baad try karo.';
       if (e.status === 503 || e.status === 500) return 'Gemini abhi busy hai. Thodi der baad try karo.';
       return 'Gemini se jawab nahi aaya' + (e.status ? ' (' + e.status + ')' : '') + (e.msg ? ': ' + e.msg : '') + '.';
@@ -1024,6 +1026,7 @@
     return m ? { v: parseFloat(m[1]), lite: m[2] ? 1 : 0, pre: m[3] ? 1 : 0 } : null;
   }
   async function modelChain() {
+    if (isVertexKey()) return VERTEX_MODELS;
     if (chainMem && Date.now() - chainMem.t < 6 * 3600e3) return chainMem.list;
     var list = [], cached = load('skc_ai_models', null);
     if (cached && cached.list && Date.now() - cached.t < 24 * 3600e3) list = cached.list;
@@ -1050,14 +1053,37 @@
     return out;
   }
   function gemParts(j) { var c = j && j.candidates && j.candidates[0], p = c && c.content && c.content.parts || [], t = ''; p.forEach(function (x) { if (x.text && !x.thought) t += x.text; }); return t; }
+  /* New AQ. keys: try Bearer, ?key= and Vertex until Google accepts one (the winner is remembered) */
+  async function postAuth(model, body) {
+    var enc = encodeURIComponent, json = { 'Content-Type': 'application/json' };
+    var gl = 'https://generativelanguage.googleapis.com/v1beta/models/' + enc(model) + ':streamGenerateContent?alt=sse';
+    function req(kind) {
+      if (kind === 'bearer') return [gl, { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.key }];
+      if (kind === 'query') return [gl + '&key=' + enc(S.key), json];
+      if (kind === 'vertex') return ['https://aiplatform.googleapis.com/v1/publishers/google/models/' + enc(model) + ':streamGenerateContent?alt=sse&key=' + enc(S.key), json];
+      return [gl, { 'Content-Type': 'application/json', 'x-goog-api-key': S.key }];
+    }
+    var aq = isVertexKey(), kinds = aq ? ['bearer', 'query', 'vertex'] : ['header'], mem = load('skc_ai_auth', null);
+    if (aq && mem && kinds.indexOf(mem) > -1) kinds = [mem].concat(kinds.filter(function (k) { return k !== mem; }));
+    var lastRes = null, lastErr = null;
+    for (var i = 0; i < kinds.length; i++) {
+      try {
+        var r = req(kinds[i]), res = await fetch(r[0], { method: 'POST', headers: r[1], body: body });
+        if (res.status === 401 || res.status === 403) { lastRes = res; continue; }
+        if (aq && res.ok) save('skc_ai_auth', kinds[i]);
+        return res;
+      } catch (e) { lastErr = e; }
+    }
+    if (lastRes) return lastRes;
+    throw lastErr;
+  }
   async function callModel(model, sys, msgs, onText) {
-    var base = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model);
     var body = JSON.stringify({
       systemInstruction: { parts: [{ text: sys }] },
       contents: msgs.map(function (m) { return { role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }; }),
       generationConfig: { temperature: 0.4, maxOutputTokens: 1400 }
     });
-    var res = await fetch(base + ':streamGenerateContent?alt=sse', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': S.key }, body: body });
+    var res = await postAuth(model, body);
     if (!res.ok) { var msg = ''; try { var j = await res.json(); msg = j.error && j.error.message || ''; } catch (e) {} throw new GErr(res.status, msg); }
     var full = '';
     if (!res.body || !res.body.getReader) { var jj = await res.text(); try { JSON.parse(jj).forEach(function (x) { full += gemParts(x); }); } catch (e) {} if (full) onText(full); }
@@ -1194,7 +1220,7 @@
   sheet.addEventListener('click', function (e) { if (e.target === sheet) closeSheet(); });
   $('showKey').addEventListener('click', function () { var f = $('setKey'), s = f.type === 'password'; f.type = s ? 'text' : 'password'; this.textContent = s ? 'Hide' : 'Show'; });
   $('sheetSave').addEventListener('click', function () {
-    S.mode = $('setMode').value; S.key = $('setKey').value.trim(); delete S.model;
+    S.mode = $('setMode').value; S.key = $('setKey').value.replace(/[\s"']/g, ''); delete S.model;
     save('skc_ai_settings', S); updateStatus(); closeSheet(); toast('Settings saved');
   });
   function runLoad(src) {
