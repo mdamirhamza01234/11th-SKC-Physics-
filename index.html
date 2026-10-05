@@ -277,6 +277,13 @@
   .mj { font-family: 'Times New Roman', Georgia, serif; font-size: 1.1em; }
   .mj i { font-style: italic; } .mj .up { font-style: normal; }
   .mj sup, .mj sub { font-size: .72em; line-height: 0; }
+  .sq { display: inline-flex; align-items: stretch; vertical-align: middle; }
+  .sq > .rd { position: relative; width: .8em; flex: none; } .rd svg, .dg svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+  .sq > .ov { padding: 2px .2em 0 .05em; }
+  .dl { display: inline-flex; align-items: stretch; vertical-align: middle; }
+  .dl > .dg { position: relative; width: .5em; flex: none; } .dl > .in { padding: 0 1px; }
+  .dl + sup, .dl + sub { vertical-align: top; line-height: 1; }
+  .dl + sub { vertical-align: bottom; }
   .mb { display: block; text-align: center; margin: 8px 0; overflow-x: auto; padding: 4px 0; }
   .fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 3px; font-size: .95em; }
   .fr > .nu { border-bottom: 1px solid currentColor; padding: 0 4px; } .fr > .de { padding: 0 4px; }
@@ -958,8 +965,13 @@
     ldots:'…',cdots:'⋯',dots:'…',therefore:'∴',because:'∵',angle:'∠',perp:'⊥',parallel:'∥',in:'∈',hbar:'ħ',ell:'ℓ',prime:'′',
     sin:'sin',cos:'cos',tan:'tan',cot:'cot',sec:'sec',csc:'csc',log:'log',ln:'ln',exp:'exp',lim:'lim',min:'min',max:'max' };
   var FUNCS = { sin:1,cos:1,tan:1,cot:1,sec:1,csc:1,cosec:1,log:1,ln:1,exp:1,lim:1,min:1,max:1,sinh:1,cosh:1,tanh:1 };
+  var DP = { '(': 'M8 1Q1 50 8 99', ')': 'M2 1Q9 50 2 99', '[': 'M8 1H2V99H8', ']': 'M2 1H8V99H2', '|': 'M5 1V99', '{': 'M8 1Q4 1 4 10V40Q4 50 1 50Q4 50 4 60V90Q4 99 8 99', '}': 'M2 1Q6 1 6 10V40Q6 50 9 50Q6 50 6 60V90Q6 99 2 99' };
+  function svgP(d) { return '<svg viewBox="0 0 10 100" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.3" vector-effect="non-scaling-stroke"/></svg>'; }
+  var DLM = { sqrt: svgP('M0 62L2.5 56L5 98L10 1') };
+  function dsvg(ch) { return DP[ch] ? svgP(DP[ch]) : (ch === '.' ? '' : ch); }
   function tex(s) {
     var i = 0, n = s.length;
+    function delim() { while (s[i] === ' ') i++; var c = s[i++] || ''; if (c === '\\') { var m2 = s.slice(i).match(/^[a-zA-Z]+/); if (m2) { i += m2[0].length; return m2[0] === 'langle' ? '⟨' : m2[0] === 'rangle' ? '⟩' : ''; } c = s[i++] || ''; } return c; }
     function rawGroup() { if (s[i] !== '{') return s[i] ? s[i++] : ''; var d = 0, st = ++i; for (; i < n; i++) { if (s[i] === '{') d++; else if (s[i] === '}') { if (!d) break; d--; } } var r = s.slice(st, i); i++; return r; }
     function seq(stop) { var o = ''; while (i < n) { var c = s[i]; if (c === '}') { i++; if (stop) return o; continue; } o += withScripts(); } return o; }
     function withScripts() {
@@ -982,14 +994,16 @@
         if (!m) { nm = s[i++] || ''; if (nm === '\\') return '<br>'; if (nm === ',' || nm === ';' || nm === ':') return ' '; if (nm === '!') return ''; return nm; }
         nm = m[0]; i += nm.length;
         if (nm === 'frac' || nm === 'dfrac' || nm === 'tfrac') { var a = atom(), d = atom(); return '<span class="fr"><span class="nu">' + a + '</span><span class="de">' + d + '</span></span>'; }
-        if (nm === 'sqrt') { if (s[i] === '[') { var k = s.indexOf(']', i); i = k < 0 ? n : k + 1; } return '√<span class="ov">' + atom() + '</span>'; }
+        if (nm === 'sqrt') { if (s[i] === '[') { var k = s.indexOf(']', i); i = k < 0 ? n : k + 1; } return '<span class="sq"><span class="rd">' + DLM.sqrt + '</span><span class="ov">' + atom() + '</span></span>'; }
         if (nm === 'text' || nm === 'mathrm' || nm === 'operatorname' || nm === 'textrm') return '<span class="up">' + rawGroup() + '</span>';
         if (nm === 'mathbf' || nm === 'textbf' || nm === 'boldsymbol') return '<b>' + atom() + '</b>';
         if (nm === 'vec') return '<span class="vc">' + atom() + '</span>';
         if (nm === 'hat') return atom() + '\u0302';
         if (nm === 'bar' || nm === 'overline') return '<span class="ov">' + atom() + '</span>';
         if (nm === 'dot') return atom() + '\u0307';
-        if (nm === 'left' || nm === 'right' || nm === 'big' || nm === 'Big') { if (s[i] === '.') i++; return ''; }
+        if (nm === 'left') { var lc = delim(); var inner = ''; while (i < n && s.substr(i, 6) !== '\\right' && s[i] !== '}') inner += withScripts(); var rc = ''; if (s.substr(i, 6) === '\\right') { i += 6; rc = delim(); } return '<span class="dl"><span class="dg">' + dsvg(lc, 0) + '</span><span class="in">' + inner + '</span><span class="dg">' + dsvg(rc, 1) + '</span></span>'; }
+        if (nm === 'right') { delim(); return ''; }
+        if (nm === 'big' || nm === 'Big' || nm === 'bigg' || nm === 'Bigg') return '';
         if (nm === 'quad' || nm === 'qquad') return '\u2003';
         if (FUNCS[nm]) return '<span class="up">' + nm + '</span>';
         return SYM[nm] || nm;
@@ -1012,7 +1026,7 @@
     });
   }
   function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function inline(s) { return s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'); }
+  function inline(s) { return s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*([^*\n]+?)\*(?![*\w])/g, '$1<i>$2</i>'); }
   function md(src) {
     var store = [], lines = extractMath(esc(String(src).replace(/\r/g, '')), store).split('\n'), out = [], list = null, para = [], m;
     function flushP() { if (para.length) { out.push('<p>' + inline(para.join('<br>')) + '</p>'); para = []; } }
