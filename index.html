@@ -274,6 +274,14 @@
   .msg b { color: #fff; }
   .msg code { background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; }
   .msg .h { font-weight: 700; color: #fff; }
+  .mj { font-family: 'Times New Roman', Georgia, serif; font-size: 1.1em; }
+  .mj i { font-style: italic; } .mj .up { font-style: normal; }
+  .mj sup, .mj sub { font-size: .72em; line-height: 0; }
+  .mb { display: block; text-align: center; margin: 8px 0; overflow-x: auto; padding: 4px 0; }
+  .fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 3px; font-size: .95em; }
+  .fr > .nu { border-bottom: 1px solid currentColor; padding: 0 4px; } .fr > .de { padding: 0 4px; }
+  .ov { border-top: 1px solid currentColor; padding: 0 1px; }
+  .vc { position: relative; display: inline-block; } .vc::before { content: '\2192'; position: absolute; top: -.62em; left: 0; right: 0; text-align: center; font-size: .7em; font-style: normal; }
   .meta { margin-top: 9px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
   .meta span { padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); }
   .meta .eng { color: var(--cyan); }
@@ -938,14 +946,75 @@
     'Rules:\n- Use the BOOK CONTEXT when it is relevant and mention the chapter it comes from (for example "Chapter 04 - Kinematics").\n' +
     '- If the context does not cover the question, answer from standard Class 11 physics and clearly say it is general knowledge, not from the book.\n' +
     '- Reply in the same language the student uses (Hindi, English or Hinglish). Keep it short and step by step. Give the formula and a tiny example when useful.\n' +
-    '- Do NOT use LaTeX. Write formulas in plain text with Unicode, e.g. v = u + at, s = ut + ½at², x², √(gR), ΔT, ω.\n' +
+    '- Write every formula in simple LaTeX inside single dollar signs, e.g. $v = u + at$, $s = ut + \\frac{1}{2}at^2$, $\\sqrt{gR}$, $\\Delta T$, $\\omega$. Put an important formula alone on a line as $$ ... $$. Never write math with curly braces in plain text.\n' +
     '- For numericals show steps with units. If you are not sure, say so.';
 
   /* ---------- rendering ---------- */
+  /* ---------- LaTeX -> HTML (offline, tiny) ---------- */
+  var SYM = { alpha:'α',beta:'β',gamma:'γ',delta:'δ',epsilon:'ε',varepsilon:'ε',zeta:'ζ',eta:'η',theta:'θ',vartheta:'ϑ',lambda:'λ',mu:'μ',nu:'ν',xi:'ξ',pi:'π',rho:'ρ',sigma:'σ',tau:'τ',phi:'φ',varphi:'φ',chi:'χ',psi:'ψ',omega:'ω',
+    Gamma:'Γ',Delta:'Δ',Theta:'Θ',Lambda:'Λ',Pi:'Π',Sigma:'Σ',Phi:'Φ',Psi:'Ψ',Omega:'Ω',
+    cdot:'·',times:'×',div:'÷',pm:'±',mp:'∓',approx:'≈',sim:'∼',simeq:'≃',ll:'≪',gg:'≫',le:'≤',leq:'≤',ge:'≥',geq:'≥',ne:'≠',neq:'≠',equiv:'≡',propto:'∝',infty:'∞',
+    to:'→',rightarrow:'→',leftarrow:'←',Rightarrow:'⇒',Leftrightarrow:'⇔',leftrightarrow:'↔',partial:'∂',nabla:'∇',int:'∫',oint:'∮',sum:'∑',prod:'∏',circ:'°',degree:'°',
+    ldots:'…',cdots:'⋯',dots:'…',therefore:'∴',because:'∵',angle:'∠',perp:'⊥',parallel:'∥',in:'∈',hbar:'ħ',ell:'ℓ',prime:'′',
+    sin:'sin',cos:'cos',tan:'tan',cot:'cot',sec:'sec',csc:'csc',log:'log',ln:'ln',exp:'exp',lim:'lim',min:'min',max:'max' };
+  var FUNCS = { sin:1,cos:1,tan:1,cot:1,sec:1,csc:1,cosec:1,log:1,ln:1,exp:1,lim:1,min:1,max:1,sinh:1,cosh:1,tanh:1 };
+  function tex(s) {
+    var i = 0, n = s.length;
+    function rawGroup() { if (s[i] !== '{') return s[i] ? s[i++] : ''; var d = 0, st = ++i; for (; i < n; i++) { if (s[i] === '{') d++; else if (s[i] === '}') { if (!d) break; d--; } } var r = s.slice(st, i); i++; return r; }
+    function seq(stop) { var o = ''; while (i < n) { var c = s[i]; if (c === '}') { i++; if (stop) return o; continue; } o += withScripts(); } return o; }
+    function withScripts() {
+      var b = atom();
+      for (;;) {
+        var j = i; while (s[j] === ' ') j++;
+        if (s[j] === '^') { i = j + 1; b += '<sup>' + atom() + '</sup>'; }
+        else if (s[j] === '_') { i = j + 1; b += '<sub>' + atom() + '</sub>'; }
+        else break;
+      }
+      return b;
+    }
+    function atom() {
+      while (s[i] === ' ') i++;
+      if (i >= n) return '';
+      var c = s[i], m, nm;
+      if (c === '{') { i++; return seq(true); }
+      if (c === '\\') {
+        i++; m = s.slice(i).match(/^[a-zA-Z]+/);
+        if (!m) { nm = s[i++] || ''; if (nm === '\\') return '<br>'; if (nm === ',' || nm === ';' || nm === ':') return ' '; if (nm === '!') return ''; return nm; }
+        nm = m[0]; i += nm.length;
+        if (nm === 'frac' || nm === 'dfrac' || nm === 'tfrac') { var a = atom(), d = atom(); return '<span class="fr"><span class="nu">' + a + '</span><span class="de">' + d + '</span></span>'; }
+        if (nm === 'sqrt') { if (s[i] === '[') { var k = s.indexOf(']', i); i = k < 0 ? n : k + 1; } return '√<span class="ov">' + atom() + '</span>'; }
+        if (nm === 'text' || nm === 'mathrm' || nm === 'operatorname' || nm === 'textrm') return '<span class="up">' + rawGroup() + '</span>';
+        if (nm === 'mathbf' || nm === 'textbf' || nm === 'boldsymbol') return '<b>' + atom() + '</b>';
+        if (nm === 'vec') return '<span class="vc">' + atom() + '</span>';
+        if (nm === 'hat') return atom() + '\u0302';
+        if (nm === 'bar' || nm === 'overline') return '<span class="ov">' + atom() + '</span>';
+        if (nm === 'dot') return atom() + '\u0307';
+        if (nm === 'left' || nm === 'right' || nm === 'big' || nm === 'Big') { if (s[i] === '.') i++; return ''; }
+        if (nm === 'quad' || nm === 'qquad') return '\u2003';
+        if (FUNCS[nm]) return '<span class="up">' + nm + '</span>';
+        return SYM[nm] || nm;
+      }
+      if (/[a-zA-Z]/.test(c)) { m = s.slice(i).match(/^[a-zA-Z]+/)[0]; if (FUNCS[m]) { i += m.length; return '<span class="up">' + m + '</span>'; } i++; return '<i>' + c + '</i>'; }
+      if (c === '&') { m = s.slice(i).match(/^&[a-z]+;/); if (m) { i += m[0].length; return m[0] === '&lt;' ? '&lt;' : m[0] === '&gt;' ? '&gt;' : m[0]; } }
+      if (c === '~') { i++; return ' '; }
+      if (c === "'") { i++; return '′'; }
+      if (c === '-') { i++; return '−'; }
+      i++; return c;
+    }
+    try { return '<span class="mj">' + seq(false) + '</span>'; } catch (e) { return s; }
+  }
+  var MATH_RE = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n\s](?:[^$\n]*?[^$\n\s])?)\$/g;
+  function extractMath(t, store) {
+    return t.replace(MATH_RE, function (all, a, b, c, d) {
+      var disp = a != null || b != null, body = a != null ? a : b != null ? b : c != null ? c : d;
+      var h = tex(body.trim()); if (disp) h = '<span class="mb">' + h + '</span>';
+      store.push(h); return '\u0001' + (store.length - 1) + '\u0002';
+    });
+  }
   function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function inline(s) { return s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'); }
   function md(src) {
-    var lines = esc(String(src).replace(/\r/g, '')).split('\n'), out = [], list = null, para = [], m;
+    var store = [], lines = extractMath(esc(String(src).replace(/\r/g, '')), store).split('\n'), out = [], list = null, para = [], m;
     function flushP() { if (para.length) { out.push('<p>' + inline(para.join('<br>')) + '</p>'); para = []; } }
     function closeL() { if (list) { out.push('</' + list + '>'); list = null; } }
     lines.forEach(function (l) {
@@ -956,7 +1025,7 @@
       closeL(); para.push(l);
     });
     flushP(); closeL();
-    return out.join('');
+    return out.join('').replace(/\u0001(\d+)\u0002/g, function (x, k) { return store[+k]; });
   }
   function scrollEnd() { chatEl.scrollTop = chatEl.scrollHeight; }
   function addMsg(role, text, opts) {
@@ -1405,6 +1474,38 @@
   window.addEventListener('pageshow', refresh);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   refresh();
+})();
+</script>
+
+<script>
+/* Android back / side-swipe: ek step peeche (menu, settings, popup, tab) -> sabse end mein exit */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var dr = $('drawer'), dbg = $('drawerBg'), sheet = $('sheet'), libBg = $('libBg'), home = $('view-chapters');
+  if (!dr || !sheet || !libBg || !home) return;
+  var pushed = 0, skip = 0, tm = null;
+  try { if (history.state && history.state.g) history.replaceState(null, ''); } catch (e) {}
+  function depth() { return (dr.classList.contains('open') ? 1 : 0) + (sheet.hidden ? 0 : 1) + (libBg.hidden ? 0 : 1) + (home.hidden ? 1 : 0); }
+  function sync() {
+    while (pushed < depth()) { try { history.pushState({ g: pushed + 1 }, ''); } catch (e) { break; } pushed++; }
+    clearTimeout(tm);
+    if (pushed > depth()) tm = setTimeout(function () {
+      var n = pushed - depth();
+      if (n > 0) { skip++; pushed -= n; history.go(-n); }
+    }, 250);
+  }
+  window.addEventListener('popstate', function () {
+    if (skip > 0) { skip--; return; }
+    if (pushed > 0) pushed--;
+    if (!libBg.hidden) libBg.hidden = true;
+    else if (!sheet.hidden) sheet.hidden = true;
+    else if (dr.classList.contains('open')) { dr.classList.remove('open'); if (dbg) dbg.classList.remove('open'); }
+    else if (home.hidden) { var t = document.querySelector('.tab[data-view="chapters"]'); if (t) t.click(); }
+    sync();
+  });
+  var mo = new MutationObserver(sync);
+  mo.observe(dr, { attributes: true, attributeFilter: ['class'] });
+  [sheet, libBg, home].forEach(function (el) { mo.observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
 })();
 </script>
 
