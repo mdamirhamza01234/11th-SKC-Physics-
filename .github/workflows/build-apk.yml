@@ -40,6 +40,20 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Add on-device Gemma plugin
+        run: |
+          if [ -f GemmaPlugin.java ] && [ -f MainActivity.java ]; then
+            D=android/app/src/main/java/com/skc/physics11
+            mkdir -p "$D"
+            cp "$D/MainActivity.java" MainActivity.orig 2>/dev/null || true
+            cp GemmaPlugin.java MainActivity.java "$D/"
+            sed -i '0,/^dependencies {/s//dependencies {\n    implementation "com.google.mediapipe:tasks-genai:0.10.+"/' android/app/build.gradle
+            sed -i -E 's/minSdkVersion = [0-9]+/minSdkVersion = 26/' android/variables.gradle
+            echo "Gemma plugin added"
+          else
+            echo "::warning::GemmaPlugin.java / MainActivity.java repo root mein nahi mili - offline Gemma plugin skip"
+          fi
+
       - name: Set app icon
         run: |
           pip install pillow
@@ -70,7 +84,14 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          if ! ./gradlew assembleDebug --no-daemon; then
+            echo "::warning::Gemma plugin ke saath build fail hua - plugin ke bina dobara build kar raha hoon"
+            D=app/src/main/java/com/skc/physics11
+            rm -f "$D/GemmaPlugin.java"
+            if [ -f ../MainActivity.orig ]; then cp ../MainActivity.orig "$D/MainActivity.java"; fi
+            sed -i '/tasks-genai/d' app/build.gradle
+            ./gradlew assembleDebug --no-daemon
+          fi
 
       - name: Name the APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk 11th-SKC-Physics.apk
