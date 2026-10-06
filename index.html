@@ -1237,12 +1237,26 @@
     llm = await mod.LlmInference.createFromOptions(fileset, { baseOptions: base, maxTokens: 2048, topK: 40, temperature: 0.5, randomSeed: 101 });
     gSay('Gemma ready ✓', 'ok'); updateStatus();
   }
+  var G_RULES = 'You are Physics AI, a Class 11 Physics tutor. Answer in simple English, short and correct. Use only standard textbook formulas; never invent numbers or constants. Write every formula inside dollar signs like $v = u + at$ or $F = \\frac{G m_1 m_2}{r^2}$. Use bullet points starting with "- ". If the answer is not in the context, use your physics knowledge.';
+  var BR = '(?:\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})';
+  var ATOM = '(?:\\\\[a-zA-Z]+' + BR + '*|[A-Za-z0-9]+(?:[_^](?:' + BR + '|\\w))+|[_^](?:' + BR + '|\\w))';
+  var RUN_RE = new RegExp(ATOM + '(?:[ \\t]?(?:' + ATOM + '|[=+\\-*/()|<>]|(?:[A-Za-z]|\\d+(?:\\.\\d+)?)(?![A-Za-z])))*', 'g');
+  function fixMath(t) {
+    t = String(t || '').replace(/<\/?(?:start|end)_of_turn>/g, '').replace(/^\s*model\s*\n/, '');
+    var parts = [], last = 0, m, re = new RegExp(MATH_RE.source, 'g');
+    while ((m = re.exec(t))) { parts.push([t.slice(last, m.index), 0]); parts.push([m[0], 1]); last = m.index + m[0].length; }
+    parts.push([t.slice(last), 0]);
+    return parts.map(function (p) {
+      if (p[1]) return p[0];
+      return p[0].replace(RUN_RE, function (r) { var tr = r.replace(/\s+$/, ''), sp = r.slice(tr.length); return '$' + tr.replace(/\$/g, '') + '$' + sp; }).replace(/\$\$/g, '$ $');
+    }).join('').replace(/\\\\(?![a-zA-Z])/g, '\n');
+  }
   async function askGemma(q, ctx, onText) {
-    var prompt = '<start_of_turn>user\n' + RULES + '\n\nBOOK CONTEXT:\n' + (ctx || '(none)') + '\n\nStudent question: ' + q + '<end_of_turn>\n<start_of_turn>model\n';
+    var prompt = '<start_of_turn>user\n' + G_RULES + '\n\nCONTEXT:\n' + (ctx || '(none)') + '\n\nQuestion: ' + q + '<end_of_turn>\n<start_of_turn>model\n';
     var full = '';
-    if (llm.native) { var r = await G.generate({ prompt: prompt }); full = String(r.text || '').replace(/<end_of_turn>[\s\S]*$/, '').trim(); onText(full); return full; }
-    await llm.generateResponse(prompt, function (part, done) { full += part; onText(full.replace(/<end_of_turn>[\s\S]*$/, '')); });
-    return full.replace(/<end_of_turn>[\s\S]*$/, '').trim();
+    if (llm.native) { var r = await G.generate({ prompt: prompt }); full = fixMath(String(r.text || '').replace(/<end_of_turn>[\s\S]*$/, '').trim()); onText(full); return full; }
+    await llm.generateResponse(prompt, function (part, done) { full += part; onText(fixMath(full.replace(/<end_of_turn>[\s\S]*$/, ''))); });
+    return fixMath(full.replace(/<end_of_turn>[\s\S]*$/, '').trim());
   }
 
   /* ---------- main flow ---------- */
