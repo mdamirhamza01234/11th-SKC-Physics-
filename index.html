@@ -1158,6 +1158,11 @@
       if (!c) return '<div class="dgp">Diagram sahi se nahi bana — dobara pucho.</div>';
       return '<div class="dgm"><div class="dgb"><button type="button" data-dg="zoom">⤢ Bada dekho</button><button type="button" data-dg="save">⬇ Save</button></div>' + c + '</div>';
     }
+    if (lang === 'sim' || lang === 'html' && /<canvas[\s>]/i.test(body) && /<script/i.test(body)) {
+      if (!closed) return '<div class="dgp">' + (done ? 'Simulation poori nahi aayi — dobara pucho.' : '<span class="dots"><i></i><i></i><i></i></span> Simulation ban rahi hai…') + '</div>';
+      var sid = simHash(body); SIMS[sid] = body.trim();
+      return '<div class="fgc" data-sim="' + sid + '"><div class="ffl" data-a="simrun">▶ Simulation chalao<small>Tap karke chalao · sliders badlo · 3D mein ungli se ghumao</small></div><div class="fbt"><button type="button" data-a="simfull">⤢ Full screen</button></div></div>';
+    }
     return '<pre class="cb"><code>' + esc(body) + '</code></pre>';
   }
   function dgPng(svgEl, name) {
@@ -1236,7 +1241,7 @@
     opts = opts || {};
     var el = document.createElement('div');
     el.className = 'msg ' + role + (opts.err ? ' err' : '');
-    if (role === 'user') el.textContent = text; else { var sp = figSplit(text); el.innerHTML = md(sp.text, true); figAttach(el, sp.ids, !!(opts && opts.flash)); }
+    if (role === 'user') el.textContent = text; else { var sp = figSplit(text); el.innerHTML = md(sp.text, true); figAttach(el, sp.ids, !!(opts && opts.flash)); simAttach(el, sp.sims); }
     chatEl.appendChild(el);
     return el;
   }
@@ -1324,12 +1329,14 @@
     return t;
   }
   function figSplit(text, partial) {
-    var ids = [], t = String(text || '').replace(/\[\[FIG:([A-Za-z0-9_.\-]+)\]\]/g, function (m, id) { if (FIG_BY[id] && ids.indexOf(id) < 0) ids.push(id); return ''; });
-    if (partial) t = t.replace(/\[\[F?I?G?:?[A-Za-z0-9_.\-]*\]?\]?$/, '');
-    return { text: t.replace(/^\s+/, ''), ids: ids.slice(0, 2) };
+    var ids = [], sims = [], t = String(text || '').replace(/\[\[FIG:([A-Za-z0-9_.\-]+)\]\]/g, function (m, id) { if (FIG_BY[id] && ids.indexOf(id) < 0) ids.push(id); return ''; });
+    t = t.replace(/\[\[SIM:([A-Za-z0-9_.\-]+)\]\]/g, function (m, k) { if (simByKey(k) && sims.indexOf(k) < 0) sims.push(k); return ''; });
+    if (partial) t = t.replace(/\[\[[A-Z]*:?[A-Za-z0-9_.\-]*\]?\]?$/, '');
+    return { text: t.replace(/^\s+/, ''), ids: ids.slice(0, 2), sims: sims.slice(0, 1) };
   }
+  function figImgPrompt(f) { return 'Clean, colourful, well-labelled educational textbook illustration of: ' + (f.cap || f.t) + ' (' + f.t + ', Class 11 NCERT, NEET). White background, large clear English labels, no watermark.'; }
   function figEsc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function figTitle(f) { return f.n ? 'Figure ' + f.n + (f.cap ? ' · ' + f.cap : '') : 'Diagram · ' + f.t + ' · page ' + f.p; }
+  function figTitle(f) { if (f.ti) return f.ti; return f.n ? 'Figure ' + f.n + (f.cap ? ' · ' + f.cap : '') : 'Diagram · ' + f.t + ' · page ' + f.p; }
   function figDeck() { try { return JSON.parse(localStorage.getItem('fig_deck') || '[]').filter(function (i) { return FIG_BY[i]; }); } catch (e) { return []; } }
   function figDeckSave(a) { try { localStorage.setItem('fig_deck', JSON.stringify(a)); } catch (e) {} }
   function figOpenPdf(f) {
@@ -1371,13 +1378,14 @@
     var inDeck = figDeck().indexOf(f.id) > -1;
     el.innerHTML = (flash ? '<div class="ffl" data-a="flip">' + figEsc(figTitle(f)) + '<small>Pehle yaad karo, phir tap karke diagram dekho</small></div>' : '<img alt="' + figEsc(figTitle(f)) + '" loading="lazy" src="' + f.f + '" data-a="zoom"><div class="fcap">' + figEsc(figTitle(f)) + '</div>') +
       '<div class="fsub">Ch ' + f.ch + ' · ' + figEsc(f.t) + ' · PDF page ' + f.p + ' · tumhare PDF se</div>' +
-      '<div class="fbt"><button type="button" data-a="pdf">Open in PDF</button><button type="button" data-a="deck">' + (inDeck ? '✓ In flashcards' : '＋ Flashcard') + '</button><button type="button" data-a="decks">My cards (' + figDeck().length + ')</button></div>';
+      '<div class="fbt"><button type="button" data-a="pdf">Open in PDF</button><button type="button" data-a="deck">' + (inDeck ? '✓ In flashcards' : '＋ Flashcard') + '</button><button type="button" data-a="decks">My cards (' + figDeck().length + ')</button><button type="button" data-a="aiimg">🎨 AI image</button></div>';
     el.addEventListener('click', function (e) {
       var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
       if (a === 'zoom') figZoom(f);
       else if (a === 'flip') {
         var h = el.querySelector('.ffl'); var im = document.createElement('img'); im.src = f.f; im.alt = ''; im.setAttribute('data-a', 'zoom'); h.replaceWith(im);
       }
+      else if (a === 'aiimg') { if (!el.getAttribute('data-ai')) { el.setAttribute('data-ai', '1'); aiImageInto(el, figImgPrompt(f)); } }
       else if (a === 'pdf') figOpenPdf(f);
       else if (a === 'deck') { var d = figDeck(), k = d.indexOf(f.id); if (k > -1) d.splice(k, 1); else d.push(f.id); figDeckSave(d); e.target.textContent = k > -1 ? '＋ Flashcard' : '✓ In flashcards'; var bd = el.querySelector('[data-a=decks]'); if (bd) bd.textContent = 'My cards (' + d.length + ')'; }
       else if (a === 'decks') { var dd = figDeck(); if (dd.length) figDeckView(Math.max(0, dd.indexOf(f.id))); }
@@ -1387,6 +1395,333 @@
   function figAttach(el, ids, flash) {
     (ids || []).forEach(function (id) { if (FIG_BY[id]) el.appendChild(figCard(FIG_BY[id], flash)); });
   }
+
+
+  /* ---------- simulations (2D / 3D) + AI image ---------- */
+  var SIMS = {};
+  function simHash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return 's' + (h >>> 0).toString(36); }
+  function PRE() {
+    var C = document.getElementById('c'), g = C.getContext('2d'), W = 1, H = 1, P = {}, run = true, T = 0, M = null, last = 0, box = document.getElementById('ctl');
+    var yaw = 0.6, pit = 0.35, dn = null;
+    function rs() { var r = window.devicePixelRatio || 1; W = C.clientWidth || 300; H = C.clientHeight || 300; C.width = W * r; C.height = H * r; g.setTransform(r, 0, 0, r, 0, 0); }
+    window.addEventListener('resize', rs);
+    function dec(s) { var t = String(s || 1); return t.indexOf('.') > -1 ? t.split('.')[1].length : 0; }
+    function sl(k, l, a, b, v, s, u) {
+      var d = document.createElement('label'); d.innerHTML = l + ' <b></b>';
+      var i = document.createElement('input'); i.type = 'range'; i.min = a; i.max = b; i.step = s || 1; i.value = v; P[k] = +v;
+      var o = d.querySelector('b');
+      function up() { P[k] = +i.value; o.textContent = (+i.value).toFixed(dec(s)) + (u || ''); }
+      i.oninput = function () { up(); if (M && M.change) M.change(k); };
+      up(); d.appendChild(i); box.appendChild(d); return i;
+    }
+    C.addEventListener('pointerdown', function (e) { dn = [e.clientX, e.clientY]; try { C.setPointerCapture(e.pointerId); } catch (x) {} });
+    C.addEventListener('pointermove', function (e) { if (!dn) return; yaw += (e.clientX - dn[0]) * 0.01; pit = Math.max(-1.4, Math.min(1.4, pit + (e.clientY - dn[1]) * 0.01)); dn = [e.clientX, e.clientY]; });
+    C.addEventListener('pointerup', function () { dn = null; });
+    function pr(x, y, z) {
+      var cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pit), sp = Math.sin(pit);
+      var x1 = x * cy + z * sy, z1 = -x * sy + z * cy, y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+      var S = Math.min(W, H) * 0.36, f = 1 / (1 + 0.18 * z2);
+      return [W / 2 + x1 * S * f, H / 2 - y1 * S * f, z2, f];
+    }
+    function arrow(x0, y0, x1, y1, col, w) {
+      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w || 2; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      var a = Math.atan2(y1 - y0, x1 - x0); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x1 - 9 * Math.cos(a - 0.4), y1 - 9 * Math.sin(a - 0.4)); g.lineTo(x1 - 9 * Math.cos(a + 0.4), y1 - 9 * Math.sin(a + 0.4)); g.closePath(); g.fill();
+    }
+    function txt(s, x, y, col, sz, al) { sz = sz || 12; g.fillStyle = col || '#e2e8f0'; g.font = sz + 'px system-ui,sans-serif'; var w = g.measureText(s).width, mx = W - 20 - (al === 'center' ? 0 : x); if (al !== 'center' && w > mx && mx > 60) { sz = Math.max(8, sz * mx / w); g.font = sz + 'px system-ui,sans-serif'; } g.textAlign = al || 'left'; g.fillText(s, x, y); }
+    function play(m) { M = m; rs(); if (m.setup) m.setup(); last = performance.now(); requestAnimationFrame(tick); }
+    function tick(n) {
+      var dt = Math.min(0.05, (n - last) / 1000); last = n;
+      if (run) { T += dt; if (M.step) M.step(dt); }
+      g.clearRect(0, 0, W, H); M.draw(T); requestAnimationFrame(tick);
+    }
+    document.getElementById('pp').onclick = function () { run = !run; this.textContent = run ? '⏸' : '▶'; };
+    document.getElementById('rr').onclick = function () { T = 0; if (M && M.reset) M.reset(); };
+  }
+  function fnBody(f) { var s = f.toString(); return s.slice(s.indexOf('{') + 1, s.lastIndexOf('}')); }
+  function simDoc(title, note, fn) {
+    var css = 'html,body{margin:0;background:#0b1220;color:#e5e7eb;font:13px system-ui,sans-serif}#bar{display:flex;gap:8px;align-items:center;padding:6px 8px}#bar b{flex:1;font-size:13px}button{background:#1e293b;color:#fff;border:1px solid #334155;border-radius:8px;padding:6px 12px;font-size:14px}canvas{display:block;width:100%;height:340px;touch-action:none;background:#0f172a}@media(min-height:720px){canvas{height:52vh}}#ctl{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;padding:8px 10px}#ctl label{display:block;font-size:12px}#ctl label b{color:#7dd3fc}#ctl input{width:100%}#note{padding:2px 10px 10px;font-size:12px;color:#94a3b8;line-height:1.4}';
+    var t = String(title).replace(/</g, '&lt;');
+    return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + css + '</style></head><body><div id="bar"><b>' + t + '</b><button id="pp" type="button">⏸</button><button id="rr" type="button">↺</button></div><canvas id="c"></canvas><div id="ctl"></div><div id="note">' + String(note).replace(/</g, '&lt;') + '</div><script>(function(){' + fnBody(PRE) + fnBody(fn) + '})();<\/script></body></html>';
+  }
+  function simSafe(html) {
+    var meta = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; media-src data: blob:">';
+    html = String(html || '');
+    if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, function (m) { return m + meta; });
+    if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, function (m) { return m + '<head>' + meta + '</head>'; });
+    return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' + meta + '<style>html,body{margin:0;background:#0f172a;color:#e5e7eb}</style></head><body>' + html + '</body></html>';
+  }
+  var SIM_LIB = [];  /* filled below: {key, title, re, desc, html} */
+  function simFind(q) { q = String(q).toLowerCase(); for (var i = 0; i < SIM_LIB.length; i++) if (SIM_LIB[i].re.test(q)) return SIM_LIB[i]; return null; }
+  function simByKey(k) { for (var i = 0; i < SIM_LIB.length; i++) if (SIM_LIB[i].key === k) return SIM_LIB[i]; return null; }
+  function wantsSim(q) { return /simulat|animat|\b3\s*-?\s*d\b|\b2\s*-?\s*d\b|interactive|chala\s*(ke|k|do)|chalake|live demo|motion dikha|experiment dikha|slider/i.test(q); }
+  function simMissing() {
+    return 'Is topic ki ready-made simulation abhi nahi hai. Ye simulations maujood hain: ' + SIM_LIB.map(function (s) { return s.title; }).join(', ') + '. Gemini key ke saath koi bhi topic ki custom simulation ban sakti hai.';
+  }
+  function simPrompt() {
+    var t = '\n\nSIMULATIONS: when a concept is easier to understand by watching it move or by changing parameters (for example ' + SIM_EX + '), or the student asks for a simulation, animation, 2D, 3D or interactive demo, include a simulation.';
+    t += ' If one of these built-in simulations fits exactly, write [[SIM:key]] on its own line (no code): ' + SIM_LIB.map(function (s) { return s.key + ' = ' + s.desc; }).join('; ') + '.';
+    t += ' Otherwise write ONE ```sim fenced block containing a complete self-contained HTML document starting with <!doctype html>, followed by a 2-4 line explanation of what to watch and which slider to move. HTML rules: no external files, libraries, fonts, images or network; one <canvas id="c"> (width 100%, height 340px) animated with requestAnimationFrame; at least two <input type="range"> sliders with visible labels and live values, plus Pause and Reset buttons; dark background (#0f172a) with light text; English labels with units; works with touch and mouse; for 3D write your own perspective projection on the 2D canvas (rotate points by yaw and pitch, drag to rotate, depth-sort, scale to the canvas); use the real formulas and show them on screen; keep the code under about 7000 characters and close every tag and bracket. For pure theory questions do not add a simulation.';
+    return t;
+  }
+  function simAttach(el, keys) {
+    (keys || []).forEach(function (k) {
+      var s = simByKey(k); if (!s) return;
+      var html = simDoc(s.title, s.note, s.fn), id = simHash(k); SIMS[id] = html;
+      var d = document.createElement('div'); d.className = 'fgc'; d.setAttribute('data-sim', id);
+      d.innerHTML = '<div class="ffl" data-a="simrun">▶ ' + figEsc(s.title) + '<small>Tap karke simulation chalao · sliders badlo' + (s.d3 ? ' · 3D: ungli se ghumao' : '') + '</small></div><div class="fbt"><button type="button" data-a="simfull">⤢ Full screen</button></div>';
+      el.appendChild(d);
+    });
+  }
+  function simRun(card) {
+    var id = card.getAttribute('data-sim'), html = SIMS[id]; if (!html) return;
+    var h = card.querySelector('.ffl,.simf'); var f = document.createElement('iframe');
+    f.className = 'simf'; f.setAttribute('sandbox', 'allow-scripts'); f.style.cssText = 'width:100%;height:560px;border:0;display:block;background:#0f172a'; f.srcdoc = simSafe(html);
+    if (h) h.replaceWith(f);
+  }
+  function simFull(card) {
+    var id = card.getAttribute('data-sim'), html = SIMS[id]; if (!html) return;
+    figOverlay(function (o, close) {
+      o.innerHTML = '<div class="fh"><span>Simulation</span><button type="button">Close</button></div><div class="fb" style="padding:0"><iframe sandbox="allow-scripts" style="width:100%;height:100%;border:0;background:#0f172a"></iframe></div>';
+      o.querySelector('iframe').srcdoc = simSafe(html); o.querySelector('button').onclick = close;
+    });
+  }
+  function simClick(e) {
+    var t = e.target.closest ? e.target.closest('[data-a]') : null; if (!t) return;
+    var a = t.getAttribute('data-a'), card = t.closest('[data-sim]'); if (!card) return;
+    if (a === 'simrun') simRun(card); else if (a === 'simfull') simFull(card);
+  }
+  /* ----- AI image (Gemini image model) ----- */
+  function wantsImgGen(q) { return /(generate|create|make|banao|bana\s*do|bana\s*de|banado)[^.?]{0,40}(image|picture|photo|tasveer|illustration)|(image|picture|photo|tasveer|illustration)[^.?]{0,40}(generate|create|banao|bana\s*do|bana\s*de)|ai\s*image|real\s*image|realistic/i.test(q); }
+  async function genImage(prompt) {
+    if (!S.key) throw new Error('Gemini API key daalo (⚙ Settings), tab AI image chalegi.');
+    var models = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview', 'gemini-2.0-flash-preview-image-generation'], lastErr = '';
+    for (var i = 0; i < models.length; i++) {
+      var body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } });
+      var res; try { res = await postAuth(models[i], body, true); } catch (e) { lastErr = 'Network error'; continue; }
+      var j = null; try { j = await res.json(); } catch (e) {}
+      if (!res.ok) { lastErr = (j && j.error && j.error.message) || ('HTTP ' + res.status); continue; }
+      var parts = j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts || [];
+      for (var k = 0; k < parts.length; k++) { var d = parts[k].inlineData || parts[k].inline_data; if (d && d.data) return 'data:' + (d.mimeType || d.mime_type || 'image/png') + ';base64,' + d.data; }
+      lastErr = 'Model ne image nahi di';
+    }
+    throw new Error(lastErr || 'Image nahi bani');
+  }
+  async function aiImageInto(host, prompt) {
+    var box = document.createElement('div'); box.className = 'fgc';
+    box.innerHTML = '<div class="ffl" style="cursor:default"><span class="dots"><i></i><i></i><i></i></span> AI image ban rahi hai…</div>';
+    host.appendChild(box); scrollEnd();
+    try {
+      var src = await genImage(prompt);
+      var f = { id: 'ai-image', f: src, ti: 'AI image (Gemini)' };
+      box.innerHTML = '<img alt="AI image" src="' + src + '" data-a="zoom"><div class="fcap">🎨 AI-generated image</div><div class="fsub">AI ki banayi image mein labels/spelling galat ho sakte hain. Exam ke liye PDF wala figure sahi hai.</div><div class="fbt"><button type="button" data-a="zoom">⤢ Bada dekho / Save</button></div>';
+      box.addEventListener('click', function (e) { if (e.target.getAttribute && e.target.getAttribute('data-a') === 'zoom') figZoom(f); });
+    } catch (e) {
+      var m = String(e && e.message || e);
+      box.innerHTML = '<div class="ffl" style="cursor:default">Image generate nahi hui.<small>' + figEsc(/quota|billing|limit|exceed|RESOURCE|permission|not found|not supported/i.test(m) ? 'Tumhari Gemini key par image model chalu nahi hai (free key par aksar band hota hai, billing chahiye). PDF wala figure ya SVG diagram use karo.' : m.slice(0, 160)) + '</small></div>';
+    }
+    scrollEnd();
+  }
+
+  var SIM_EX = 'projectile motion, SHM, pendulum, circular motion, waves, collisions, orbits and Kepler, vectors, rotation, fields';
+  SIM_LIB.push({
+    key: 'projectile', title: '2D · Projectile motion', re: /projectile|oblique|angle of projection|range of (a )?projectile|maximum height|time of flight|trajectory|parabol/,
+    desc: 'projectile motion with speed, angle and g sliders', note: 'x = u cosθ·t, y = u sinθ·t − ½gt². Range R = u² sin2θ / g, maximum height H = u² sin²θ / 2g. Try 45° and 30°/60° (same range).',
+    fn: function () {
+      sl('u', 'Speed u', 5, 50, 25, 1, ' m/s'); sl('a', 'Angle θ', 5, 85, 45, 1, '°'); sl('g', 'g', 1, 25, 9.8, 0.1, ' m/s²');
+      var tr = [];
+      play({
+        reset: function () { tr = []; }, change: function () { tr = []; T = 0; },
+        draw: function (t) {
+          var th = P.a * Math.PI / 180, vx = P.u * Math.cos(th), vy = P.u * Math.sin(th), tf = 2 * vy / P.g, R = vx * tf, Hm = vy * vy / (2 * P.g);
+          var s = Math.min((W - 70) / Math.max(R, 1), (H - 70) / Math.max(Hm, 1)), ox = 35, oy = H - 35, tt = t % (tf + 1.2); if (tt > tf) tt = tf;
+          g.strokeStyle = '#475569'; g.beginPath(); g.moveTo(10, oy); g.lineTo(W - 10, oy); g.stroke();
+          g.strokeStyle = '#38bdf8'; g.setLineDash([4, 4]); g.beginPath();
+          for (var i = 0; i <= 60; i++) { var q = tf * i / 60, X = ox + vx * q * s, Y = oy - (vy * q - 0.5 * P.g * q * q) * s; if (i) g.lineTo(X, Y); else g.moveTo(X, Y); } g.stroke(); g.setLineDash([]);
+          var x = vx * tt, y = vy * tt - 0.5 * P.g * tt * tt, X = ox + x * s, Y = oy - y * s;
+          g.fillStyle = '#f97316'; g.beginPath(); g.arc(X, Y, 7, 0, 7); g.fill();
+          arrow(X, Y, X + vx * s * 0.25, Y, '#22c55e', 2); arrow(X, Y, X, Y - (vy - P.g * tt) * s * 0.25, '#ef4444', 2);
+          txt('vx (constant)', X + 8, Y - 8, '#22c55e', 11); txt('vy', X + 6, Y + 18, '#ef4444', 11);
+          txt('R = ' + R.toFixed(1) + ' m   H = ' + Hm.toFixed(1) + ' m   T = ' + tf.toFixed(2) + ' s', 12, 20, '#e2e8f0', 13);
+          txt('t = ' + tt.toFixed(2) + ' s', 12, 38, '#94a3b8', 12);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'shm', title: '2D · Spring-mass SHM', re: /\bshm\b|simple harmonic|spring|oscillat|time period of (a )?(spring|block)|restoring force/,
+    desc: 'spring-mass simple harmonic motion with x-t graph', note: 'ω = √(k/m), T = 2π√(m/k), x = A cos ωt. Heavier mass → longer period; stiffer spring → shorter period. Period does not depend on A.',
+    fn: function () {
+      sl('m', 'Mass m', 0.2, 5, 1, 0.1, ' kg'); sl('k', 'Spring k', 5, 100, 40, 1, ' N/m'); sl('A', 'Amplitude A', 0.2, 1, 0.6, 0.05, ' m');
+      play({
+        draw: function (t) {
+          var w = Math.sqrt(P.k / P.m), x = P.A * Math.cos(w * t), v = -P.A * w * Math.sin(w * t), sc = (W * 0.32) / 1, cx = W * 0.5, y0 = 70;
+          g.fillStyle = '#334155'; g.fillRect(8, y0 - 30, 8, 60);
+          var bx = cx + x * sc - 28; g.strokeStyle = '#94a3b8'; g.lineWidth = 2; g.beginPath(); g.moveTo(16, y0);
+          var n = 12, sx = 16, ex = bx; for (var i = 1; i <= n; i++) { g.lineTo(sx + (ex - sx) * (i - 0.5) / n, y0 + (i % 2 ? -12 : 12)); } g.lineTo(ex, y0); g.stroke();
+          g.fillStyle = '#38bdf8'; g.fillRect(bx, y0 - 22, 56, 44); g.lineWidth = 1;
+          g.setLineDash([3, 4]); g.beginPath(); g.moveTo(cx, y0 - 40); g.lineTo(cx, y0 + 40); g.stroke(); g.setLineDash([]);
+          txt('mean position', cx, y0 + 56, '#94a3b8', 11, 'center');
+          arrow(bx + 28, y0 - 30, bx + 28 + v * 10, y0 - 30, '#22c55e', 2);
+          var gy = 120, gh = H - gy - 20; g.strokeStyle = '#475569'; g.beginPath(); g.moveTo(10, gy + gh / 2); g.lineTo(W - 10, gy + gh / 2); g.stroke();
+          g.strokeStyle = '#f97316'; g.beginPath(); var span = 4 * 2 * Math.PI / w;
+          for (var j = 0; j <= 200; j++) { var q = t - span + span * j / 200, X = 10 + (W - 20) * j / 200, Y = gy + gh / 2 - (P.A * Math.cos(w * q)) / 1 * gh * 0.45; if (j) g.lineTo(X, Y); else g.moveTo(X, Y); } g.stroke();
+          g.fillStyle = '#f97316'; g.beginPath(); g.arc(W - 10, gy + gh / 2 - x * gh * 0.45, 5, 0, 7); g.fill();
+          txt('x–t graph (cosine)', 12, gy + 12, '#94a3b8', 11);
+          txt('T = ' + (2 * Math.PI / w).toFixed(2) + ' s   f = ' + (w / 2 / Math.PI).toFixed(2) + ' Hz   v = ' + v.toFixed(2) + ' m/s', 12, 20, '#e2e8f0', 13);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'pendulum', title: '2D · Simple pendulum', re: /pendulum|bob\b|second'?s pendulum/,
+    desc: 'simple pendulum with length, angle and g sliders', note: 'T = 2π√(L/g) for small angles (independent of mass). For large angles the real period is longer. Try g = 1.6 (Moon).',
+    fn: function () {
+      sl('L', 'Length L', 0.3, 3, 1, 0.05, ' m'); sl('a', 'Start angle', 5, 80, 25, 1, '°'); sl('g', 'g', 1, 25, 9.8, 0.1, ' m/s²');
+      var th = 0, om = 0, ct = 0;
+      function rst() { th = P.a * Math.PI / 180; om = 0; }
+      play({
+        setup: rst, reset: rst, change: rst,
+        step: function (dt) { var n = 20, h = dt / n; for (var i = 0; i < n; i++) { om += -(P.g / P.L) * Math.sin(th) * h; th += om * h; } },
+        draw: function () {
+          var px = W / 2, py = 30, len = Math.min(H - 80, W * 0.6) * (0.35 + 0.65 * P.L / 3), bx = px + len * Math.sin(th), by = py + len * Math.cos(th);
+          g.strokeStyle = '#94a3b8'; g.lineWidth = 2; g.beginPath(); g.moveTo(px - 40, py); g.lineTo(px + 40, py); g.stroke();
+          g.strokeStyle = '#475569'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(px, py); g.lineTo(px, py + len + 20); g.stroke(); g.setLineDash([]);
+          g.strokeStyle = '#e2e8f0'; g.beginPath(); g.moveTo(px, py); g.lineTo(bx, by); g.stroke();
+          g.fillStyle = '#f97316'; g.beginPath(); g.arc(bx, by, 14, 0, 7); g.fill();
+          var vx = om * len * Math.cos(th), vy = -om * len * Math.sin(th); arrow(bx, by, bx + vx * 0.25, by + vy * 0.25, '#22c55e', 2);
+          txt('T (small angle) = ' + (2 * Math.PI * Math.sqrt(P.L / P.g)).toFixed(2) + ' s', 12, 20, '#e2e8f0', 13);
+          txt('θ = ' + (th * 180 / Math.PI).toFixed(1) + '°', 12, 38, '#94a3b8', 12);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'circular', title: '2D · Uniform circular motion', re: /circular motion|centripetal|angular velocity|angular speed|uniform circular|banking/,
+    desc: 'uniform circular motion with v and a vectors', note: 'v = ωr (tangent), a = ω²r = v²/r (always towards centre). Speed is constant but velocity changes direction, so acceleration is not zero.',
+    fn: function () {
+      sl('r', 'Radius r', 0.5, 5, 2, 0.1, ' m'); sl('w', 'ω', 0.5, 6, 2, 0.1, ' rad/s');
+      play({
+        draw: function (t) {
+          var cx = W / 2, cy = H / 2 + 10, R = Math.min(W, H) * 0.34 * (0.4 + 0.6 * P.r / 5), a = P.w * t, x = cx + R * Math.cos(a), y = cy - R * Math.sin(a);
+          g.strokeStyle = '#475569'; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke(); g.fillStyle = '#64748b'; g.beginPath(); g.arc(cx, cy, 3, 0, 7); g.fill();
+          g.strokeStyle = '#334155'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+          var v = P.w * P.r, ac = P.w * P.w * P.r, k = 8;
+          arrow(x, y, x + (-Math.sin(a)) * v * k, y - Math.cos(a) * v * k, '#22c55e', 3); arrow(x, y, x - Math.cos(a) * ac * 3, y + Math.sin(a) * ac * 3, '#ef4444', 3);
+          g.fillStyle = '#f97316'; g.beginPath(); g.arc(x, y, 9, 0, 7); g.fill();
+          txt('green: velocity v (tangent)   red: centripetal a (to centre)', 12, 20, '#e2e8f0', 12);
+          txt('v = ' + v.toFixed(2) + ' m/s   a = ' + ac.toFixed(2) + ' m/s²   T = ' + (2 * Math.PI / P.w).toFixed(2) + ' s', 12, H - 14, '#94a3b8', 12);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'wave', title: '2D · Travelling wave', re: /\bwave|wavelength|frequency|transverse|crest|trough|sound wave|superposition/,
+    desc: 'transverse travelling wave with amplitude, wavelength and speed', note: 'y = A sin(kx − ωt), k = 2π/λ, ω = 2πf, v = fλ. Each particle only oscillates up-down (red dot) while the wave pattern moves right.',
+    fn: function () {
+      sl('A', 'Amplitude A', 0.2, 1, 0.6, 0.05, ' m'); sl('l', 'Wavelength λ', 0.5, 4, 2, 0.1, ' m'); sl('v', 'Wave speed v', 0.5, 4, 2, 0.1, ' m/s');
+      play({
+        draw: function (t) {
+          var k = 2 * Math.PI / P.l, w = k * P.v, sx = (W - 30) / 8, cy = H / 2, sa = H * 0.32;
+          g.strokeStyle = '#475569'; g.beginPath(); g.moveTo(10, cy); g.lineTo(W - 10, cy); g.stroke();
+          g.strokeStyle = '#38bdf8'; g.lineWidth = 3; g.beginPath(); for (var i = 0; i <= 240; i++) { var x = 8 * i / 240, X = 15 + x * sx, Y = cy - P.A * Math.sin(k * x - w * t) * sa; if (i) g.lineTo(X, Y); else g.moveTo(X, Y); } g.stroke(); g.lineWidth = 1;
+          var px = 2, X0 = 15 + px * sx; g.fillStyle = '#ef4444'; g.beginPath(); g.arc(X0, cy - P.A * Math.sin(k * px - w * t) * sa, 7, 0, 7); g.fill();
+          var l0 = 15 + 3 * sx; arrow(l0, cy + sa + 12, l0 + P.l * sx, cy + sa + 12, '#f59e0b', 2); arrow(l0 + P.l * sx, cy + sa + 12, l0, cy + sa + 12, '#f59e0b', 2); txt('λ', l0 + P.l * sx / 2, cy + sa + 28, '#f59e0b', 13, 'center');
+          txt('f = v/λ = ' + (P.v / P.l).toFixed(2) + ' Hz   T = ' + (P.l / P.v).toFixed(2) + ' s   ω = ' + w.toFixed(2) + ' rad/s', 12, 20, '#e2e8f0', 13);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'collision', title: '2D · 1-D collision (e slider)', re: /collision|elastic|inelastic|coefficient of restitution|momentum conserv|impulse|centre of mass|center of mass/,
+    desc: 'collision of two blocks with masses, speeds and coefficient of restitution', note: 'Momentum is always conserved. e = 1 elastic (KE conserved), e = 0 perfectly inelastic (blocks stick). v₁′ = [(m₁−e m₂)u₁ + (1+e)m₂u₂]/(m₁+m₂). The COM velocity never changes.',
+    fn: function () {
+      sl('m1', 'm₁', 1, 10, 3, 1, ' kg'); sl('m2', 'm₂', 1, 10, 2, 1, ' kg'); sl('u1', 'u₁', -6, 6, 4, 0.5, ' m/s'); sl('u2', 'u₂', -6, 6, -2, 0.5, ' m/s'); sl('e', 'e', 0, 1, 1, 0.05);
+      var x1, x2, v1, v2, hit, ke0;
+      function rst() { x1 = 20; x2 = 80; v1 = P.u1; v2 = P.u2; hit = false; T = 0; ke0 = 0.5 * P.m1 * P.u1 * P.u1 + 0.5 * P.m2 * P.u2 * P.u2; }
+      play({
+        setup: rst, reset: rst, change: rst,
+        step: function (dt) {
+          x1 += v1 * dt * 6; x2 += v2 * dt * 6; var w1 = 4 + P.m1 * 1.5, w2 = 4 + P.m2 * 1.5;
+          if (!hit && x1 + w1 / 2 >= x2 - w2 / 2 && v1 > v2) { var m1 = P.m1, m2 = P.m2, e = P.e, a = v1, b = v2; v1 = ((m1 - e * m2) * a + (1 + e) * m2 * b) / (m1 + m2); v2 = ((m2 - e * m1) * b + (1 + e) * m1 * a) / (m1 + m2); hit = true; }
+          if (T > 14) rst();
+        },
+        draw: function () {
+          var s = (W - 20) / 100, y = H / 2, w1 = 4 + P.m1 * 1.5, w2 = 4 + P.m2 * 1.5;
+          g.strokeStyle = '#475569'; g.beginPath(); g.moveTo(10, y + 28); g.lineTo(W - 10, y + 28); g.stroke();
+          g.fillStyle = '#38bdf8'; g.fillRect(10 + (x1 - w1 / 2) * s, y - 28 + 56 - w1 * 4, w1 * s, w1 * 4 - 0); g.fillStyle = '#f97316'; g.fillRect(10 + (x2 - w2 / 2) * s, y + 28 - w2 * 4, w2 * s, w2 * 4);
+          arrow(10 + x1 * s, y - 50, 10 + x1 * s + v1 * 14, y - 50, '#22c55e', 2); arrow(10 + x2 * s, y - 70, 10 + x2 * s + v2 * 14, y - 70, '#ef4444', 2);
+          var p = P.m1 * v1 + P.m2 * v2, ke = 0.5 * P.m1 * v1 * v1 + 0.5 * P.m2 * v2 * v2, vc = (P.m1 * P.u1 + P.m2 * P.u2) / (P.m1 + P.m2);
+          txt('p = ' + p.toFixed(1) + ' kg·m/s (conserved)   KE = ' + ke.toFixed(1) + ' J (start ' + ke0.toFixed(1) + ' J)', 12, 20, '#e2e8f0', 12);
+          txt('v₁ = ' + v1.toFixed(2) + '   v₂ = ' + v2.toFixed(2) + '   v_COM = ' + vc.toFixed(2) + ' m/s', 12, 38, '#94a3b8', 12);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'orbit3d', title: '3D · Satellite orbit (Kepler)', d3: true, re: /orbit|kepler|satellite|planet|gravitation|escape velocity|areal velocity|perigee|apogee/,
+    desc: '3D planet and satellite orbit with eccentricity (drag to rotate)', note: 'Kepler: orbit is an ellipse with the Sun/planet at one focus; the satellite moves faster near perigee (areal velocity constant). T² ∝ a³. Drag the picture to rotate.',
+    fn: function () {
+      sl('e', 'Eccentricity e', 0, 0.85, 0.5, 0.01); sl('sp', 'Time speed', 0.3, 3, 1, 0.1, '×'); sl('i', 'Orbit tilt', 0, 80, 30, 1, '°');
+      var Mn = 0;
+      function kep(M, e) { var E = M; for (var i = 0; i < 8; i++) E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return E; }
+      function pt(E, e, ti) { var a = 1, x = a * (Math.cos(E) - e), y = a * Math.sqrt(1 - e * e) * Math.sin(E); return [x, y * Math.sin(ti), y * Math.cos(ti)]; }
+      play({
+        reset: function () { Mn = 0; },
+        step: function (dt) { Mn += dt * P.sp * 1.2; },
+        draw: function () {
+          var e = P.e, ti = P.i * Math.PI / 180, i, p, q;
+          g.strokeStyle = '#334155'; g.beginPath(); for (i = 0; i <= 64; i++) { p = pr(Math.cos(i / 64 * 6.2832) * 1.1, 0, Math.sin(i / 64 * 6.2832) * 1.1); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); } g.stroke();
+          var pc = pr(0, 0, 0), rad = 16 * pc[3] + 4; var gr = g.createRadialGradient(pc[0] - 4, pc[1] - 4, 2, pc[0], pc[1], rad); gr.addColorStop(0, '#93c5fd'); gr.addColorStop(1, '#1d4ed8');
+          g.strokeStyle = '#f59e0b'; g.lineWidth = 2; g.beginPath(); for (i = 0; i <= 120; i++) { var E = i / 120 * 6.2832; q = pt(E, e, ti); p = pr(q[0], q[1], q[2]); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); } g.stroke(); g.lineWidth = 1;
+          g.fillStyle = gr; g.beginPath(); g.arc(pc[0], pc[1], rad, 0, 7); g.fill();
+          var E2 = kep(Mn % 6.2832, e), s = pt(E2, e, ti), ps = pr(s[0], s[1], s[2]); var r = Math.sqrt(1 + 0 - 0) ; var dist = 1 - e * Math.cos(E2), speed = Math.sqrt((1 + e) / (1 - e) * 0 + (2 / dist - 1));
+          g.fillStyle = '#f97316'; g.beginPath(); g.arc(ps[0], ps[1], 7 * ps[3], 0, 7); g.fill();
+          arrow(pc[0], pc[1], ps[0], ps[1], 'rgba(148,163,184,.6)', 1);
+          txt('distance r = ' + dist.toFixed(2) + ' a   relative speed = ' + speed.toFixed(2) + ' (fast near perigee r = ' + (1 - e).toFixed(2) + ' a)', 12, 20, '#e2e8f0', 12);
+          txt('drag to rotate 3D view', 12, H - 12, '#94a3b8', 11);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'vectors', title: '2D · Vector addition', re: /vector|resultant|parallelogram|triangle law|components? of|resolution/,
+    desc: 'vector addition with magnitude and angle sliders', note: 'R = √(A² + B² + 2AB cosθ), tanα = B sinθ / (A + B cosθ). Parallelogram law: the diagonal from the common tail is the resultant.',
+    fn: function () {
+      sl('A', 'Magnitude A', 1, 10, 6, 0.5); sl('B', 'Magnitude B', 1, 10, 4, 0.5); sl('th', 'Angle between θ', 0, 180, 60, 1, '°');
+      play({
+        draw: function () {
+          var s = Math.min(W, H) / 22, ox = W * 0.28, oy = H * 0.68, th = P.th * Math.PI / 180, ax = P.A * s, ay = 0, bx = P.B * s * Math.cos(th), by = -P.B * s * Math.sin(th);
+          g.strokeStyle = '#475569'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(ox + ax, oy); g.lineTo(ox + ax + bx, oy + by); g.moveTo(ox + bx, oy + by); g.lineTo(ox + ax + bx, oy + by); g.stroke(); g.setLineDash([]);
+          arrow(ox, oy, ox + ax, oy, '#38bdf8', 3); arrow(ox, oy, ox + bx, oy + by, '#22c55e', 3); arrow(ox, oy, ox + ax + bx, oy + by, '#ef4444', 3);
+          txt('A', ox + ax / 2, oy + 18, '#38bdf8', 14, 'center'); txt('B', ox + bx / 2 - 12, oy + by / 2, '#22c55e', 14); txt('R', ox + (ax + bx) / 2 + 6, oy + (by) / 2 - 8, '#ef4444', 14);
+          var R = Math.sqrt(P.A * P.A + P.B * P.B + 2 * P.A * P.B * Math.cos(th)), al = Math.atan2(P.B * Math.sin(th), P.A + P.B * Math.cos(th)) * 180 / Math.PI;
+          txt('R = ' + R.toFixed(2) + '   angle of R with A = ' + al.toFixed(1) + '°', 12, 20, '#e2e8f0', 13);
+          txt('θ = 0° → R = A + B,  θ = 180° → R = |A − B|', 12, 38, '#94a3b8', 12);
+        }
+      });
+    }
+  });
+  SIM_LIB.push({
+    key: 'rotation', title: '2D · Torque and rotation', re: /torque|moment of inertia|rotation|angular momentum|rolling|angular acceleration|rigid body/,
+    desc: 'rigid disc rotating under a torque (moment of inertia, force, radius)', note: 'τ = F·r, α = τ/I, ω = αt, θ = ½αt². For a disc I = ½MR². A bigger moment of inertia gives a smaller angular acceleration.',
+    fn: function () {
+      sl('M', 'Mass M', 1, 10, 4, 0.5, ' kg'); sl('R', 'Radius R', 0.2, 1, 0.5, 0.05, ' m'); sl('F', 'Force F', 1, 30, 10, 1, ' N');
+      var w = 0, th = 0;
+      function rst() { w = 0; th = 0; }
+      play({
+        setup: rst, reset: rst, change: rst,
+        step: function (dt) { var I = 0.5 * P.M * P.R * P.R, al = P.F * P.R / I; w += al * dt; th += w * dt; if (w > 30) rst(); },
+        draw: function () {
+          var cx = W / 2, cy = H / 2 + 5, R = Math.min(W, H) * 0.3 * (0.5 + 0.5 * P.R); g.save(); g.translate(cx, cy); g.rotate(-th);
+          g.fillStyle = '#1e3a8a'; g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill(); g.strokeStyle = '#93c5fd'; g.lineWidth = 2; g.stroke();
+          for (var i = 0; i < 4; i++) { g.rotate(Math.PI / 2); g.beginPath(); g.moveTo(0, 0); g.lineTo(R, 0); g.stroke(); } g.fillStyle = '#f97316'; g.beginPath(); g.arc(R * 0.8, 0, 6, 0, 7); g.fill(); g.restore();
+          arrow(cx + R + 25, cy + R * 0.9, cx + R + 25, cy + R * 0.9 - P.F * 3, '#22c55e', 4); txt('F', cx + R + 32, cy + R * 0.9 - P.F * 1.5, '#22c55e', 13);
+          var I = 0.5 * P.M * P.R * P.R; txt('I = ½MR² = ' + I.toFixed(3) + ' kg·m²   τ = ' + (P.F * P.R).toFixed(2) + ' N·m   α = ' + (P.F * P.R / I).toFixed(1) + ' rad/s²', 12, 20, '#e2e8f0', 12);
+          txt('ω = ' + w.toFixed(2) + ' rad/s   KE = ' + (0.5 * I * w * w).toFixed(2) + ' J', 12, 38, '#94a3b8', 12);
+        }
+      });
+    }
+  });
 
   function friendly(e) {
     if (e instanceof GErr) {
@@ -1430,13 +1765,13 @@
   }
   function gemParts(j) { var c = j && j.candidates && j.candidates[0], p = c && c.content && c.content.parts || [], t = ''; p.forEach(function (x) { if (x.text && !x.thought) t += x.text; }); return t; }
   /* New AQ. keys: try Bearer, ?key= and Vertex until Google accepts one (the winner is remembered) */
-  async function postAuth(model, body) {
+  async function postAuth(model, body, gen) {
     var enc = encodeURIComponent, json = { 'Content-Type': 'application/json' };
-    var gl = 'https://generativelanguage.googleapis.com/v1beta/models/' + enc(model) + ':streamGenerateContent?alt=sse';
+    var gl = 'https://generativelanguage.googleapis.com/v1beta/models/' + enc(model) + (gen ? ':generateContent' : ':streamGenerateContent?alt=sse');
     function req(kind) {
       if (kind === 'bearer') return [gl, { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.key }];
-      if (kind === 'query') return [gl + '&key=' + enc(S.key), json];
-      if (kind === 'vertex') return ['https://aiplatform.googleapis.com/v1/publishers/google/models/' + enc(model) + ':streamGenerateContent?alt=sse&key=' + enc(S.key), json];
+      if (kind === 'query') return [gl + (gen ? '?key=' : '&key=') + enc(S.key), json];
+      if (kind === 'vertex') return ['https://aiplatform.googleapis.com/v1/publishers/google/models/' + enc(model) + (gen ? ':generateContent?key=' : ':streamGenerateContent?alt=sse&key=') + enc(S.key), json];
       return [gl, { 'Content-Type': 'application/json', 'x-goog-api-key': S.key }];
     }
     var aq = isVertexKey(), kinds = aq ? ['bearer', 'query', 'vertex'] : ['header'], mem = load('skc_ai_auth', null);
@@ -1583,11 +1918,11 @@
     var bubble = addMsg('ai', ''); bubble.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; scrollEnd();
     var docs = search(q, ch, engine === 'gemini' ? 6 : 2);
     var onText = function (t) { bubble.innerHTML = md(figSplit(t, true).text); scrollEnd(); };
-    var fcand = figSearch(q, ch, 8), gfig = [];
+    var fcand = figSearch(q, ch, 8), gfig = [], imgReq = wantsImgGen(q);
     var label = '', answer = '', err = null;
     try {
       if (engine === 'gemini') {
-        var sys = RULES + '\n\nBOOK CONTEXT:\n' + (buildContext(docs, 9000) || '(none)') + figPrompt(fcand);
+        var sys = RULES + '\n\nBOOK CONTEXT:\n' + (buildContext(docs, 9000) || '(none)') + figPrompt(fcand) + simPrompt() + (imgReq ? '\n\nIMAGE: the app itself will generate an AI image for this request, so do NOT draw an SVG or write image code; give only a short explanation (and a [[FIG:id]] marker if a PDF figure matches).' : '');
         var past = [], hs = history.slice(0, -1);
         for (var hi = 0; hi + 1 < hs.length; hi++) { if (hs[hi].role === 'user' && hs[hi + 1].role === 'ai' && !hs[hi + 1].err) { past.push(hs[hi], hs[hi + 1]); hi++; } }
         past = past.slice(-6);
@@ -1599,7 +1934,14 @@
       }
       if (engine === 'device') { label = 'Gemma · on-device'; answer = await askGemma(q, buildContext(docs, 2400), onText); }
       if (engine === 'device' && wantsFig(q) && fcand.length && fcand[0].sc >= 6) answer += '\n[[FIG:' + fcand[0].f.id + ']]';
-      var fsp = figSplit(answer); bubble.innerHTML = md(fsp.text, true); figAttach(bubble, fsp.ids, wantsFlash(q)); addMeta(bubble, label, docs);
+      if (!/\[\[SIM:|```sim/.test(answer)) {
+        var sm = simFind(q);
+        if (sm && (engine === 'device' || wantsSim(q))) answer += '\n[[SIM:' + sm.key + ']]';
+        else if (!sm && engine === 'device' && wantsSim(q)) answer += '\n\n' + simMissing();
+      }
+      var fsp = figSplit(answer); bubble.innerHTML = md(fsp.text, true); figAttach(bubble, fsp.ids, wantsFlash(q)); simAttach(bubble, fsp.sims);
+      if (imgReq && engine === 'gemini') aiImageInto(bubble, q + '. Clean, colourful, well-labelled educational illustration for a Class 11 NCERT / NEET student. English labels, white background.');
+      addMeta(bubble, label, docs);
       history.push({ role: 'ai', text: answer, engine: label, docs: docs.slice(0, 3).map(function (d) { return { ch: d.ch, title: d.title }; }) });
     } catch (e) {
       err = friendly(e); bubble.className = 'msg ai err'; bubble.innerHTML = md(err);
@@ -1642,6 +1984,7 @@
     }).catch(function () {});
   }
   chatEl.addEventListener('click', dgClick);
+  chatEl.addEventListener('click', simClick);
   renderAll(); updateStatus();
 })();
 </script>
